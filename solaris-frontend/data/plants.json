@@ -1,0 +1,21 @@
+[
+  { "name": "Lakvijaya (Norochcholai)", "type": "coal", "capacity_mw": 900, "lat": 8.0362, "lon": 79.8283, "note": "Only coal plant in the country" },
+  { "name": "Kelanitissa", "type": "oil", "capacity_mw": 380, "lat": 6.950, "lon": 79.870, "note": "State-owned thermal, Colombo" },
+  { "name": "Sapugaskanda", "type": "oil", "capacity_mw": 160, "lat": 6.973, "lon": 79.950, "note": "Near Kelaniya" },
+  { "name": "Kerawalapitiya (West Coast Power)", "type": "oil", "capacity_mw": 300, "lat": 6.990, "lon": 79.870, "note": "Combined cycle, west coast" },
+  { "name": "Uthuru Janani", "type": "oil", "capacity_mw": 24, "lat": 9.740, "lon": 80.010, "note": "Chunnakam, Jaffna peninsula" },
+  { "name": "Victoria", "type": "hydro", "capacity_mw": 210, "lat": 7.231, "lon": 80.794, "note": "Largest hydro station, Mahaweli complex" },
+  { "name": "Kotmale", "type": "hydro", "capacity_mw": 201, "lat": 7.052, "lon": 80.598, "note": "Mahaweli complex" },
+  { "name": "Upper Kotmale", "type": "hydro", "capacity_mw": 150, "lat": 6.930, "lon": 80.660, "note": "Talawakele area" },
+  { "name": "Randenigala", "type": "hydro", "capacity_mw": 126, "lat": 7.263, "lon": 80.859, "note": "Mahaweli complex" },
+  { "name": "Samanalawewa", "type": "hydro", "capacity_mw": 120, "lat": 6.680, "lon": 80.750, "note": "Balangoda area" },
+  { "name": "Laxapana Complex", "type": "hydro", "capacity_mw": 335, "lat": 6.870, "lon": 80.420, "note": "Old + New Laxapana + Wimalasurendra + Polpitiya combined" },
+  { "name": "Kukule Ganga", "type": "hydro", "capacity_mw": 70, "lat": 6.530, "lon": 80.420, "note": "Ratnapura area" },
+  { "name": "Moragahakanda", "type": "hydro", "capacity_mw": 25, "lat": 7.850, "lon": 80.720, "note": "Matale area, irrigation + power" },
+  { "name": "Thambapavani", "type": "wind", "capacity_mw": 100, "lat": 8.980, "lon": 79.900, "note": "Largest wind farm, Mannar" },
+  { "name": "Mampuri / Madurankuliya cluster", "type": "wind", "capacity_mw": 30, "lat": 8.120, "lon": 79.810, "note": "Puttalam wind cluster" },
+  { "name": "Ambewela (Aitken Spence)", "type": "wind", "capacity_mw": 3, "lat": 6.860, "lon": 80.780, "note": "Nuwara Eliya highlands" },
+  { "name": "Buruthakanda Solar Park", "type": "solar", "capacity_mw": 1.2, "lat": 6.150, "lon": 81.150, "note": "First commercial solar park, Hambantota — your uploaded IEEE paper's dataset" },
+  { "name": "Welikanda Solar Park", "type": "solar", "capacity_mw": 10, "lat": 7.860, "lon": 81.050, "note": "Hayleys, largest at commissioning" },
+  { "name": "Siyambalanduwa Solar Park", "type": "solar", "capacity_mw": 10, "lat": 6.850, "lon": 81.350, "note": "Moneragala area" }
+]
