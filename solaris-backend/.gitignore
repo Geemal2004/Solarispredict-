@@ -1,0 +1,19 @@
+# Ignore local caches / secrets; keep empty model placeholders trackable via .gitkeep
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+
+# Large training caches (regenerate with python -m app.data_pipeline)
+app/data/*.parquet
+app/data/*.csv
+
+# Trained artifacts are optional in git; regenerate with train_solar_model
+# Uncomment to ignore:
+# app/models/*.pkl
+# app/models/*.json
