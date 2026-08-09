@@ -1,0 +1,43 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.cursor/
+.vscode/
+*.swp
+*.pem
+
+# Secrets / local env
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# Backend generated caches (regenerate via data pipeline)
+solaris-backend/app/data/*.parquet
+solaris-backend/app/data/*.csv
+
+# Large reference reports kept locally (not for GitHub)
+3. CEB Annual Report 2023 - English.pdf
+
+# Duplicate research PDF
+ICIAFS_load_forecasting_2021_ (1).pdf
