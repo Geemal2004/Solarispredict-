@@ -1,0 +1,14 @@
+{
+  "zone": "jaffna",
+  "rmse": 33.898,
+  "mae": 14.191,
+  "n_train": 14035,
+  "n_test": 3509,
+  "target": "ALLSKY_SFC_SW_DWN",
+  "unit": "W/m^2",
+  "quantiles_trained": [
+    10,
+    50,
+    90
+  ]
+}

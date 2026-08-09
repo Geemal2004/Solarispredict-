@@ -1,0 +1,35 @@
+{
+  "zone": "jaffna",
+  "top": [
+    {
+      "feature": "clearsky_ghi",
+      "importance": 0.48369
+    },
+    {
+      "feature": "hour_sin",
+      "importance": 0.29575
+    },
+    {
+      "feature": "hour_cos",
+      "importance": 0.16211
+    },
+    {
+      "feature": "cloud_amt",
+      "importance": 0.03483
+    },
+    {
+      "feature": "humidity",
+      "importance": 0.00901
+    }
+  ],
+  "all": {
+    "clearsky_ghi": 0.48369,
+    "hour_sin": 0.29575,
+    "hour_cos": 0.16211,
+    "cloud_amt": 0.03483,
+    "humidity": 0.00901,
+    "temp": 0.00615,
+    "doy_cos": 0.00553,
+    "doy_sin": 0.00292
+  }
+}

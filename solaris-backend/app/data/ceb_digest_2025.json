@@ -1,0 +1,27 @@
+{
+  "source": "CEB Statistical Digest 2025 (web edition) + Annual Report 2023 context",
+  "year_label": "2025",
+  "disclaimer": "Official statistics (CEB Digest 2025) — not live SCADA.",
+  "installed_capacity_mw": 4814,
+  "renewable_share_pct": 60.2,
+  "rooftop_solar_mw": 1935,
+  "rooftop_connections": 108979,
+  "rooftop_energy_share_pct": 9.4,
+  "grid_solar_mw": 307,
+  "night_max_demand_mw": 2896,
+  "day_max_demand_mw": 2826,
+  "tou_peak_window": "18:30–22:30",
+  "tou_note": "Domestic TOU peak window from 15 Oct 2025 tariff schedule",
+  "annual_report_2023": {
+    "day_peak_example": {
+      "mw": 2166,
+      "datetime_local": "2023-08-22T16:00",
+      "note": "Day peak delayed/suppressed by rooftop solar (CEB Annual Report 2023)"
+    },
+    "night_peak_example": {
+      "mw": 2414.8,
+      "datetime_local": "2023-03-29T19:00"
+    },
+    "ncre_visibility": "CEB Assist telemetered 280+ NCRE plants / 650+ MW — visibility gap remains for unmonitored rooftop"
+  }
+}

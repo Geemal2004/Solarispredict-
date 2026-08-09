@@ -1,0 +1,154 @@
+[
+  {
+    "name": "Lakvijaya (Norochcholai)",
+    "type": "coal",
+    "capacity_mw": 900,
+    "lat": 8.0362,
+    "lon": 79.8283,
+    "note": "Only coal plant in the country"
+  },
+  {
+    "name": "Kelanitissa",
+    "type": "oil",
+    "capacity_mw": 380,
+    "lat": 6.95,
+    "lon": 79.87,
+    "note": "State-owned thermal, Colombo"
+  },
+  {
+    "name": "Sapugaskanda",
+    "type": "oil",
+    "capacity_mw": 160,
+    "lat": 6.973,
+    "lon": 79.95,
+    "note": "Near Kelaniya"
+  },
+  {
+    "name": "Kerawalapitiya (West Coast Power)",
+    "type": "oil",
+    "capacity_mw": 300,
+    "lat": 6.99,
+    "lon": 79.87,
+    "note": "Combined cycle, west coast"
+  },
+  {
+    "name": "Uthuru Janani",
+    "type": "oil",
+    "capacity_mw": 24,
+    "lat": 9.74,
+    "lon": 80.01,
+    "note": "Chunnakam, Jaffna peninsula"
+  },
+  {
+    "name": "Victoria",
+    "type": "hydro",
+    "capacity_mw": 210,
+    "lat": 7.231,
+    "lon": 80.794,
+    "note": "Largest hydro station, Mahaweli complex"
+  },
+  {
+    "name": "Kotmale",
+    "type": "hydro",
+    "capacity_mw": 201,
+    "lat": 7.052,
+    "lon": 80.598,
+    "note": "Mahaweli complex"
+  },
+  {
+    "name": "Upper Kotmale",
+    "type": "hydro",
+    "capacity_mw": 150,
+    "lat": 6.93,
+    "lon": 80.66,
+    "note": "Talawakele area"
+  },
+  {
+    "name": "Randenigala",
+    "type": "hydro",
+    "capacity_mw": 126,
+    "lat": 7.263,
+    "lon": 80.859,
+    "note": "Mahaweli complex"
+  },
+  {
+    "name": "Samanalawewa",
+    "type": "hydro",
+    "capacity_mw": 120,
+    "lat": 6.68,
+    "lon": 80.75,
+    "note": "Balangoda area"
+  },
+  {
+    "name": "Laxapana Complex",
+    "type": "hydro",
+    "capacity_mw": 335,
+    "lat": 6.87,
+    "lon": 80.42,
+    "note": "Old + New Laxapana + Wimalasurendra + Polpitiya combined"
+  },
+  {
+    "name": "Kukule Ganga",
+    "type": "hydro",
+    "capacity_mw": 70,
+    "lat": 6.53,
+    "lon": 80.42,
+    "note": "Ratnapura area"
+  },
+  {
+    "name": "Moragahakanda",
+    "type": "hydro",
+    "capacity_mw": 25,
+    "lat": 7.85,
+    "lon": 80.72,
+    "note": "Matale area, irrigation + power"
+  },
+  {
+    "name": "Thambapavani",
+    "type": "wind",
+    "capacity_mw": 100,
+    "lat": 8.98,
+    "lon": 79.9,
+    "note": "Largest wind farm, Mannar"
+  },
+  {
+    "name": "Mampuri / Madurankuliya cluster",
+    "type": "wind",
+    "capacity_mw": 30,
+    "lat": 8.12,
+    "lon": 79.81,
+    "note": "Puttalam wind cluster"
+  },
+  {
+    "name": "Ambewela (Aitken Spence)",
+    "type": "wind",
+    "capacity_mw": 3,
+    "lat": 6.86,
+    "lon": 80.78,
+    "note": "Nuwara Eliya highlands"
+  },
+  {
+    "name": "Buruthakanda Solar Park",
+    "type": "solar",
+    "capacity_mw": 1.2,
+    "lat": 6.15,
+    "lon": 81.15,
+    "note": "First commercial solar park, Hambantota"
+  },
+  {
+    "name": "Welikanda Solar Park",
+    "type": "solar",
+    "capacity_mw": 10,
+    "lat": 7.86,
+    "lon": 81.05,
+    "note": "Hayleys, largest at commissioning"
+  },
+  {
+    "name": "Siyambalanduwa Solar Park",
+    "type": "solar",
+    "capacity_mw": 10,
+    "lat": 6.85,
+    "lon": 81.35,
+    "note": "Moneragala area"
+  }
+]
