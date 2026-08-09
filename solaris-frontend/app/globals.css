@@ -1,0 +1,233 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* SCADA / control-room enterprise palette */
+  --bg: #0c1017;
+  --background: #0c1017;
+  --panel: #151b24;
+  --panel-elevated: #1a222d;
+  --mist: #1e2834;
+  --line: #2a3442;
+  --foreground: #e8eef5;
+  --demand: #6eb6ff;
+  --demand-ink: #e8eef5;
+  --solar: #e8a33d;
+  --solar-wash: rgba(232, 163, 61, 0.18);
+  --monsoon: #3ecf8e;
+  --risk: #ff6b6b;
+  --risk-wash: rgba(255, 107, 107, 0.14);
+  --ok: #3ecf8e;
+  --warn: #e8a33d;
+  --ink-muted: #8a96a8;
+  --sun-wash: #e8eef5;
+  --readout: #c5d0de;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  min-height: 100vh;
+}
+
+.font-display {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-body {
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-mono-readout {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Flat control-room field — no atmospheric gradients */
+.atmosphere {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: var(--bg);
+}
+
+.monsoon-grain {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.scada-panel {
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.scada-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-elevated);
+  padding: 0.5rem 0.75rem;
+}
+
+.status-led {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.status-led-ok {
+  background: var(--ok);
+  box-shadow: 0 0 6px rgba(62, 207, 142, 0.55);
+}
+
+.status-led-warn {
+  background: var(--warn);
+  box-shadow: 0 0 6px rgba(232, 163, 61, 0.55);
+}
+
+.status-led-alarm {
+  background: var(--risk);
+  box-shadow: 0 0 6px rgba(255, 107, 107, 0.6);
+}
+
+.status-led-idle {
+  background: var(--ink-muted);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out both;
+}
+
+.animate-rise {
+  animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2.4s ease-in-out infinite;
+}
+
+@keyframes blink-alarm {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.animate-blink-alarm {
+  animation: blink-alarm 1.2s ease-in-out infinite;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Leaflet dark map chrome */
+.leaflet-container {
+  font: inherit;
+  background: #0c1017;
+}
+
+.leaflet-control-attribution {
+  background: rgba(12, 16, 23, 0.85) !important;
+  color: #8a96a8 !important;
+  font-size: 10px !important;
+}
+
+.leaflet-control-attribution a {
+  color: #6eb6ff !important;
+}
+
+.leaflet-bar a {
+  background: #151b24 !important;
+  color: #e8eef5 !important;
+  border-bottom-color: #2a3442 !important;
+}
+
+.leaflet-bar a:hover {
+  background: #1e2834 !important;
+}
+
+.fpv-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Timeline range scrubber */
+.timeline-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 0;
+  background: var(--mist);
+  outline: none;
+  cursor: pointer;
+}
+
+.timeline-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--solar);
+  border: 1px solid var(--foreground);
+  cursor: grab;
+}
+
+.timeline-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--solar);
+  border: 1px solid var(--foreground);
+  border-radius: 0;
+  cursor: grab;
+}
+
+.timeline-range:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
