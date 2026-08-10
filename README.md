@@ -1,6 +1,15 @@
 # SolarisPredict-SL
 
-**Net-load co-pilot for Sri Lanka’s power grid.**
+> **An AI-powered grid digital twin for Sri Lanka providing weather-driven national net-load forecasts and dispatch intelligence to optimize renewable integration.**
+
+![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=for-the-badge&logo=scikit-learn&logoColor=white)
+![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=for-the-badge&logo=pandas&logoColor=white)
+![Remotion](https://img.shields.io/badge/Remotion-%23000000.svg?style=for-the-badge&logo=remotion&logoColor=white)
 
 Rooftop solar is already system-scale (~1.9 GW). Operators need to see **demand − solar** hours ahead — not solar or load alone — so they can ramp oil down, hold hydro for the evening TOU peak, and avoid curtailing solar by default.
 
@@ -8,7 +17,17 @@ SolarisPredict-SL combines zone forecasts, a national plant map with time playba
 
 ---
 
-## Screenshots
+## 🌟 Value Proposition
+
+- **Prevents Renewable Curtailment:** By accurately forecasting net-load, grid operators can proactively stage flexible thermal and hydro generation, minimizing unnecessary solar and wind curtailment.
+- **Reduces Operational Risk:** Provides clear, actionable dispatch advisories (e.g., when to hold hydro reserves or spin up fast thermal plants) hours ahead of critical ramps.
+- **Enhances Grid Visibility:** Consolidates disparate weather data, estimated rooftop solar capacity, and regional demand into a single, cohesive national dashboard.
+- **Cost Efficiency:** Optimizing the generation mix and reducing reliance on expensive peaker plants during non-critical hours lowers overall operational costs.
+- **Accelerates Green Transition:** Builds confidence in handling higher penetrations of variable renewable energy (VRE) by providing data-driven operational intelligence.
+
+---
+
+## 📸 Screenshots
 
 ### Forecast & dispatch advisory
 
@@ -24,7 +43,7 @@ Animated national generation view — hydro, coal, oil/thermal, wind, utility so
 
 ---
 
-## Why this exists
+## 💡 Why this exists
 
 In February 2025, Sri Lanka’s grid faced a blackout when solar was meeting over half of national demand. Curtailment later spread beyond “Sunny Sundays.” The operational bottleneck is visibility: without a **net-load** forecast, flexible thermal and hydro cannot be staged early enough, so solar gets cut.
 
@@ -32,7 +51,7 @@ Academic work here typically forecasts solar *or* demand. This project forecasts
 
 ---
 
-## What you get
+## 📦 What you get
 
 | Surface | Purpose |
 |---------|---------|
@@ -45,7 +64,7 @@ Academic work here typically forecasts solar *or* demand. This project forecasts
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌──────────────────────────┐         HTTPS / JSON        ┌────────────────────────────┐
@@ -65,7 +84,7 @@ Optional: `solaris-demo` — 90s Remotion pitch video for competition demos ([DE
 
 ---
 
-## Quick start
+## 🚀 Quick start
 
 ### 1. Backend
 
@@ -105,7 +124,16 @@ npm run dev          # Remotion Studio → composition SolarisPitch
 
 ---
 
-## API (backend)
+## 🧰 Tech Stack (Detailed)
+
+- **Frontend:** Next.js 14, React, TypeScript, TailwindCSS, Recharts, Leaflet / react-simple-maps  
+- **Backend:** Python, FastAPI, Uvicorn, XGBoost, scikit-learn, pandas, numpy  
+- **Data Integrations:** NASA POWER API, Open-Meteo API (no API key required)  
+- **Demo Video:** Remotion  
+
+---
+
+## 📡 API (backend)
 
 | Endpoint | Description |
 |----------|-------------|
@@ -118,7 +146,7 @@ Zones: `hambantota` · `jaffna` · `colombo` · `hours` 1–168.
 
 ---
 
-## Models & data
+## 🧠 Models & data
 
 | Piece | Approach |
 |-------|----------|
@@ -131,7 +159,7 @@ Zones: `hambantota` · `jaffna` · `colombo` · `hours` 1–168.
 
 ---
 
-## Repository layout
+## 📂 Repository layout
 
 ```
 AI Challenge/
@@ -147,15 +175,6 @@ More detail: [solaris-backend/README.md](solaris-backend/README.md) · [solaris-
 
 ---
 
-## Tech stack
-
-- **Frontend:** Next.js 14, TypeScript, Tailwind, Recharts, Leaflet / react-simple-maps  
-- **Backend:** FastAPI, Uvicorn, XGBoost, scikit-learn, pandas  
-- **Data:** NASA POWER, Open-Meteo (no API key)  
-- **Demo video:** Remotion  
-
----
-
-## Demo tip
+## 🎬 Demo tip
 
 See [DEMO.md](DEMO.md) for a timed walkthrough. Start on **Forecast** → point at the advisory → play **National Map** → land on **Methodology** for sources. Lead with EST / NOT SCADA so judges trust the method.
