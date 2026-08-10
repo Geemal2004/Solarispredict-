@@ -208,6 +208,125 @@ export interface FpvReservoirs {
   reservoirs: { name: string; lat: number; lon: number; note: string }[];
 }
 
+export interface NationalBriefing {
+  product: string;
+  as_of: string;
+  kpis: {
+    demand_now_mw: number;
+    solar_estimate_mw: number;
+    net_load_mw: number;
+    renewable_share_pct: number;
+    distributed_solar_visibility_pct: number | null;
+  };
+  peaks: Record<string, { demand_mw: number; timestamp: string }>;
+  mix_mw: Record<string, number>;
+  weather: {
+    temp_c: number | null;
+    cloud_cover_pct: number | null;
+    ghi_wm2: number | null;
+  };
+  next_critical_event: string;
+  archive: {
+    archive_start: string;
+    archive_end: string;
+    generation_intervals: number;
+    distributed_solar_visibility_pct: number | null;
+    models?: Record<string, { mae_mw: number; rmse_mw: number; mape_pct: number; r2: number }>;
+    statement: string;
+  };
+  source: string;
+}
+
+export interface ReplayPoint {
+  timestamp: string;
+  demand_mw: number;
+  solar_estimate_mw: number;
+  solar_scada_mw: number;
+  net_load_mw: number;
+  coal_mw: number;
+  oil_mw: number;
+  major_hydro_mw: number;
+  mini_hydro_mw: number;
+  wind_mw: number;
+  biomass_mw: number;
+  temp_c: number | null;
+  cloud_cover_pct: number | null;
+}
+
+export interface ReplayDay {
+  date: string;
+  points: ReplayPoint[];
+  peaks: Record<string, { demand_mw: number; timestamp: string }>;
+  summary: {
+    max_demand_mw: number;
+    min_demand_mw: number;
+    max_solar_estimate_mw: number;
+    min_net_load_mw: number;
+    mean_renewable_share_pct: number;
+    evening_ramp_mw: number | null;
+    solar_visibility_pct: number;
+  };
+  n_points: number;
+}
+
+export interface ForecastAccuracy {
+  window_days: number;
+  model_holdout: Record<
+    string,
+    { mae_mw: number; rmse_mw: number; mape_pct: number; r2: number }
+  >;
+  recent_persistence_monitor: {
+    demand_mae_mw: number | null;
+    solar_mae_mw: number | null;
+    net_load_mae_mw: number | null;
+    evening_ramp_mae_mw: number | null;
+  };
+  note: string;
+}
+
+export interface NationalForecastPoint {
+  timestamp: string;
+  demand_mw: number;
+  solar_mw: number;
+  net_load_mw: number;
+  net_load_p10_mw?: number;
+  net_load_p90_mw?: number;
+  cloud_cover_pct?: number;
+  temp_c?: number;
+  ghi_wm2?: number;
+  weather_regime?: string;
+  tou_peak?: boolean;
+  hosting_risk?: boolean;
+}
+
+export interface NationalForecast {
+  scope: string;
+  hours: number;
+  interval_minutes: number;
+  source: string;
+  risk_threshold_mw: number;
+  points: NationalForecastPoint[];
+  daily: {
+    date: string;
+    peak_demand_mw: number;
+    peak_solar_mw: number;
+    min_net_load_mw: number;
+    evening_ramp_mw: number | null;
+    mean_cloud_pct: number;
+    hosting_risk_intervals: number;
+  }[];
+  anchor_timestamp: string;
+  scenario?: Record<string, unknown>;
+}
+
+export interface SolarVisibility {
+  distributed_solar_visibility_pct: number;
+  definition: string;
+  scada_solar_mwh: number;
+  system_solar_estimate_mwh: number;
+  insight: string;
+}
+
 function apiBase(): string {
   const base = process.env.NEXT_PUBLIC_API_URL;
   if (!base) {
@@ -283,4 +402,46 @@ export function fetchCalendar(hours = 48) {
 
 export function fetchFpvReservoirs() {
   return getJson<FpvReservoirs>("/map/fpv-reservoirs");
+}
+
+export function fetchNationalBriefing() {
+  return getJson<NationalBriefing>("/ops/briefing");
+}
+
+export function fetchReplayDay(day: string) {
+  return getJson<ReplayDay>(`/ops/replay?day=${encodeURIComponent(day)}`);
+}
+
+export function fetchReplayDates() {
+  return getJson<{ dates: string[] }>("/ops/replay/dates");
+}
+
+export function fetchForecastAccuracy(windowDays = 7) {
+  return getJson<ForecastAccuracy>(`/ops/accuracy?window_days=${windowDays}`);
+}
+
+export function fetchSolarVisibility() {
+  return getJson<SolarVisibility>("/ops/visibility");
+}
+
+export function fetchNationalForecast(hours = 168) {
+  return getJson<NationalForecast>(`/forecast/national?hours=${hours}`);
+}
+
+export function fetchNationalScenario(params: {
+  hours?: number;
+  cloud_delta_pct?: number;
+  rooftop_solar_mw?: number;
+  thermal_outage_mw?: number;
+  wind_collapse?: boolean;
+  hydro_conserve?: boolean;
+}) {
+  const q = new URLSearchParams();
+  q.set("hours", String(params.hours ?? 48));
+  if (params.cloud_delta_pct != null) q.set("cloud_delta_pct", String(params.cloud_delta_pct));
+  if (params.rooftop_solar_mw != null) q.set("rooftop_solar_mw", String(params.rooftop_solar_mw));
+  if (params.thermal_outage_mw != null) q.set("thermal_outage_mw", String(params.thermal_outage_mw));
+  if (params.wind_collapse) q.set("wind_collapse", "true");
+  if (params.hydro_conserve) q.set("hydro_conserve", "true");
+  return getJson<NationalForecast>(`/forecast/national/scenario?${q.toString()}`);
 }

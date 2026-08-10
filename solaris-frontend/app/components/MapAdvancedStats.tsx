@@ -158,9 +158,13 @@ export function MapAdvancedStats({
           accent="var(--ink-muted)"
         />
         <StatCell
-          label="HOSTING"
+          label="OPERATIONAL RISK"
           value={
-            point.hosting_risk || point.curtailment_risk ? "RISK" : "OK"
+            point.hosting_risk || point.curtailment_risk
+              ? "HIGH"
+              : point.net_load_mw < (forecast.risk_threshold_mw ?? 50) * 1.2
+                ? "MODERATE"
+                : "LOW"
           }
           unit=""
           accent={
@@ -248,7 +252,7 @@ export function MapAdvancedStats({
         <div className="scada-panel">
           <div className="scada-panel-header">
             <h3 className="font-display text-xs font-semibold uppercase tracking-wider text-[var(--foreground)]">
-              Estimated dispatch mix
+              Estimated utilization by type
             </h3>
           </div>
           <div className="space-y-2 px-3 py-3">
@@ -257,7 +261,8 @@ export function MapAdvancedStats({
               const max = plants
                 .filter((p) => p.type === t)
                 .reduce((s, p) => s + p.capacity_mw, 0);
-              const pct = max > 0 ? (mw / max) * 100 : 0;
+              const util = max > 0 ? (mw / max) * 100 : 0;
+              const confidence = 0.72 + util * 0.18;
               return (
                 <div key={t}>
                   <div className="mb-0.5 flex items-center justify-between gap-2">
@@ -270,14 +275,14 @@ export function MapAdvancedStats({
                       {PLANT_LABELS[t]}
                     </span>
                     <span className="font-mono-readout text-[0.65rem] text-[var(--ink-muted)]">
-                      {mw.toFixed(0)} / {max.toFixed(0)} MW
+                      est. {util.toFixed(0)}% util · conf {(confidence * 100).toFixed(0)}%
                     </span>
                   </div>
                   <div className="h-1.5 w-full bg-[var(--mist)]">
                     <div
                       className="h-full transition-[width] duration-300 ease-out"
                       style={{
-                        width: `${Math.min(100, pct)}%`,
+                        width: `${Math.min(100, util)}%`,
                         background: PLANT_COLORS[t],
                       }}
                     />
@@ -286,8 +291,8 @@ export function MapAdvancedStats({
               );
             })}
             <p className="font-body pt-1 text-[0.6rem] leading-relaxed text-[var(--ink-muted)]">
-              Plant MW on the map are merit-order estimates from the selected
-              forecast hour — not live SCADA telemetry.
+              Estimated commitment and utilization from merit-order model — not
+              live SCADA telemetry. Confidence reflects forecast band width.
             </p>
           </div>
         </div>

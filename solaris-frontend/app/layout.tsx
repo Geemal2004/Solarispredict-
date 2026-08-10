@@ -24,9 +24,9 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SolarisPredict-SL · System Control",
+  title: "SolarisPredict-SL · Sri Lanka Grid Digital Twin",
   description:
-    "SCADA-style net-load co-pilot for Sri Lanka — estimated forecasts, Digest-backed grid truth, merit-order advisory.",
+    "NSO-anchored national grid digital twin — 15-minute operational archive, weather-driven forecasts, and dispatch intelligence for Sri Lanka.",
 };
 
 export default function RootLayout({

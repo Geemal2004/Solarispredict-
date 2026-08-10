@@ -1,0 +1,26 @@
+{
+  "archive_rows": 17195,
+  "archive_start": "2026-02-10 00:15:00",
+  "archive_end": "2026-08-09 23:45:00",
+  "distributed_solar_visibility_pct": 12.03,
+  "models": {
+    "demand_xgb": {
+      "mae_mw": 46.963,
+      "rmse_mw": 69.46,
+      "mape_pct": 2.727,
+      "r2": 0.9777
+    },
+    "solar_xgb": {
+      "mae_mw": 24.092,
+      "rmse_mw": 46.548,
+      "mape_pct": 91.744,
+      "r2": 0.993
+    },
+    "netload_xgb": {
+      "mae_mw": 57.188,
+      "rmse_mw": 87.792,
+      "mape_pct": 27.297,
+      "r2": 0.9913
+    }
+  }
+}

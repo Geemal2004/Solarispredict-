@@ -62,15 +62,29 @@ Historical per-day series begin on **2026-02-10** (earlier dates are clamped ser
 ```bash
 # from solaris-backend/
 python -m app.ingestion.fetch_historical --start 2026-02-10 --end yesterday
-python -m app.ingestion.fetch_historical --yesterday
+python -m app.feature_store          # Open-Meteo archive + training_15min.parquet
+python -m app.train_nso_models       # national demand / solar / net-load XGBoost
 ```
 
 Writes:
 
 - `app/data/nso/raw/YYYY-MM-DD.json` — raw day bundles
-- `app/data/nso/processed/*.parquet` — tidy tables (`generation_15min`, `solar_forecast_15min`, `peaks_daily`, …)
+- `app/data/nso/processed/*.parquet` — tidy tables
+- `app/data/feature_store/training_15min.parquet` — unified feature store
+- `app/models/nso/*.pkl` — national models
 
-Demand at each timestep is the sum of published load-curve sources. Note: load-curve `Solar` is often much lower than `solar-forecast` `pvEstimate` (SCADA subset vs system estimate) — keep both columns.
+### Digital twin APIs
+
+| Path | Purpose |
+|------|---------|
+| `GET /ops/briefing` | National Grid Briefing (latest NSO interval) |
+| `GET /ops/replay?day=` | Historical day reconstruction |
+| `GET /ops/accuracy` | Holdout + persistence monitors |
+| `GET /ops/visibility` | Distributed solar visibility index |
+| `GET /forecast/national?hours=` | 7-day national forecast (15-min) |
+| `GET /forecast/national/scenario` | What-if overlay |
+
+Demand is the sum of published load-curve sources. Load-curve `Solar` is often much lower than `solar-forecast` `pvEstimate` (SCADA subset vs system estimate) — keep both columns.
 
 ## Endpoints
 

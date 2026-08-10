@@ -2,7 +2,7 @@
 
 import type { NetLoadForecast } from "@/lib/api";
 
-interface HostingRiskBannerProps {
+interface OperationalRiskBannerProps {
   forecast: NetLoadForecast | null;
 }
 
@@ -20,7 +20,7 @@ function firstRiskTime(forecast: NetLoadForecast): string | null {
   });
 }
 
-export function HostingRiskBanner({ forecast }: HostingRiskBannerProps) {
+export function OperationalRiskBanner({ forecast }: OperationalRiskBannerProps) {
   if (!forecast) return null;
 
   const anyRisk = forecast.any_hosting_risk ?? forecast.any_curtailment_risk;
@@ -30,6 +30,8 @@ export function HostingRiskBanner({ forecast }: HostingRiskBannerProps) {
   const ramp = forecast.evening_ramp_mw;
 
   if (!anyRisk && (ramp == null || ramp === 0)) return null;
+
+  const riskLevel = anyRisk ? "High operational risk" : "Moderate operational risk";
 
   return (
     <aside
@@ -46,7 +48,7 @@ export function HostingRiskBanner({ forecast }: HostingRiskBannerProps) {
             ].join(" ")}
           />
           <p className="font-display text-xs font-semibold uppercase tracking-wider text-[var(--risk)]">
-            {anyRisk ? "Net-load / hosting risk" : "Evening ramp watch"}
+            {riskLevel}
           </p>
         </div>
         {threshold != null ? (
@@ -58,18 +60,19 @@ export function HostingRiskBanner({ forecast }: HostingRiskBannerProps) {
       <p className="px-3 py-2.5 font-body text-sm leading-relaxed text-[var(--foreground)] sm:px-4">
         {anyRisk
           ? when
-            ? `Net load below zone hosting threshold around ${when}. `
-            : `Net load dips below zone hosting-risk threshold. `
+            ? `Net load below operational threshold around ${when}. `
+            : `Net load dips below operational-risk threshold. `
           : ""}
         {ramp != null
           ? `Midday→evening ramp ≈ ${ramp} MW into TOU 18:30–22:30. `
           : ""}
-        Forecast/dispatch visibility signal — not published CEB curtailment GWh.
-        Prefer oil ramp-down 60–90 min ahead; conserve hydro for evening peak;
-        avoid solar curtailment by default.
+        Net-load operational risk signal — not distribution hosting capacity.
+        Prefer oil ramp-down 60–90 min ahead; conserve hydro for evening peak.
       </p>
     </aside>
   );
 }
 
-export const CurtailmentBanner = HostingRiskBanner;
+/** @deprecated use OperationalRiskBanner */
+export const HostingRiskBanner = OperationalRiskBanner;
+export const CurtailmentBanner = OperationalRiskBanner;

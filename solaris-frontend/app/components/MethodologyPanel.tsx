@@ -48,11 +48,35 @@ export function MethodologyPanel({
         className="animate-fade-in mt-4 max-w-3xl space-y-5 font-body text-sm leading-relaxed text-[var(--ink-muted)]"
       >
         <p className="text-[var(--foreground)]">
-          <strong>Product claim:</strong> a System Control co-pilot for Sri
-          Lanka net-load foresight — weather-driven solar ML × calendar demand ×
-          merit-order advisory — grounded in published SL research and CEB
-          Digest statistics. Not live SCADA.
+          <strong>Product claim:</strong> a Sri Lanka Grid Digital Twin —
+          official NSO / EDLCare gensum operational archive at 15-minute
+          resolution, weather-driven national demand / solar / net-load models,
+          historical replay, and merit-order dispatch intelligence.
         </p>
+
+        <div>
+          <h3 className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--solar)]">
+            NSO operational archive
+          </h3>
+          <ul className="mt-2 list-disc space-y-2 pl-5">
+            <li>
+              Public JSON from{" "}
+              <code className="text-[var(--foreground)]">edlcare.edl.lk/api/gensum/*</code>{" "}
+              (load-curve, solar-forecast, peaks, reservoirs) — no login required
+              for gensum endpoints.
+            </li>
+            <li>
+              181 days · 17,195 generation intervals (2026-02-10 → 2026-08-09)
+              fused with Open-Meteo archive weather into{" "}
+              <code className="text-[var(--foreground)]">training_15min.parquet</code>.
+            </li>
+            <li>
+              National XGBoost holdout: demand MAE ~47 MW (vs ~187 MW persistence),
+              solar MAE ~24 MW, net-load MAE ~57 MW. Distributed solar visibility
+              index ~12%.
+            </li>
+          </ul>
+        </div>
 
         <div>
           <h3 className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--solar)]">
@@ -109,13 +133,14 @@ export function MethodologyPanel({
           </h3>
           <ul className="mt-2 list-disc space-y-2 pl-5">
             <li>
-              <strong className="text-[var(--demand)]">Solar MW</strong> —
-              XGBoost on NASA POWER, driven by Open-Meteo; holdout RMSE/MAE on
-              GHI printed per zone.
+              <strong className="text-[var(--demand)]">National demand / solar / net load</strong>{" "}
+              — XGBoost trained on NSO 15-min actuals + Open-Meteo; zone GHI models
+              remain available for plant-level views.
             </li>
             <li>
-              <strong className="text-[var(--demand)]">Demand</strong> —
-              illustrative calendar load curve (not CEB SCC telemetry).
+              <strong className="text-[var(--demand)]">Demand (zone mode)</strong> —
+              legacy calendar load curve still available per zone; national
+              briefing uses NSO-trained demand.
             </li>
             <li>
               <strong className="text-[var(--demand)]">Dispatch</strong> —

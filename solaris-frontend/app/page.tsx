@@ -13,11 +13,14 @@ import {
   HorizonSelector,
   type ForecastHorizonHours,
 } from "@/app/components/HorizonSelector";
+import { HistoricalReplayPanel } from "@/app/components/HistoricalReplayPanel";
 import { LiveStatCards } from "@/app/components/LiveStatCards";
 import { MapAdvancedStats } from "@/app/components/MapAdvancedStats";
 import { MethodologyPanel } from "@/app/components/MethodologyPanel";
+import { NationalBriefingPanel } from "@/app/components/NationalBriefingPanel";
 import { NetLoadChart } from "@/app/components/NetLoadChart";
 import { ResearchEvidence } from "@/app/components/ResearchEvidence";
+import { ScenarioSimulator } from "@/app/components/ScenarioSimulator";
 import { SectorBreakdown } from "@/app/components/SectorBreakdown";
 import { StateOfGridStrip } from "@/app/components/StateOfGridStrip";
 import { TimelineSlider } from "@/app/components/TimelineSlider";
@@ -28,20 +31,31 @@ import {
   fetchCalendar,
   fetchCebBaseline,
   fetchDispatchAdvisory,
+  fetchForecastAccuracy,
   fetchFpvReservoirs,
+  fetchNationalBriefing,
+  fetchNationalForecast,
   fetchNationalStats,
   fetchNetLoadForecast,
+  fetchReplayDates,
+  fetchReplayDay,
   fetchRooftopSample,
   fetchSolarEvidence,
   fetchSolarQuantiles,
+  fetchSolarVisibility,
   type BacktestMetrics,
   type CalendarHorizon,
   type CebBaseline,
   type DispatchAdvisory,
+  type ForecastAccuracy,
+  type NationalBriefing,
+  type NationalForecast,
   type NationalStats,
   type NetLoadForecast,
+  type ReplayDay,
   type RooftopPoint,
   type SolarEvidence,
+  type SolarVisibility,
   type Zone,
   ZONES,
 } from "@/lib/api";
@@ -60,17 +74,19 @@ const MapPanel = dynamic(
   }
 );
 
-type TabId = "forecast" | "map" | "advisory" | "methodology";
+type TabId = "briefing" | "replay" | "forecast" | "map" | "advisory" | "methodology";
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: "forecast", label: "Forecast" },
+  { id: "briefing", label: "Grid Briefing" },
+  { id: "replay", label: "Historical Replay" },
+  { id: "forecast", label: "Zone Forecast" },
   { id: "map", label: "National Map" },
   { id: "advisory", label: "Dispatch Advisory" },
   { id: "methodology", label: "Methodology" },
 ];
 
 export default function DashboardPage() {
-  const [tab, setTab] = useState<TabId>("forecast");
+  const [tab, setTab] = useState<TabId>("briefing");
   const [zone, setZone] = useState<Zone>("hambantota");
   const [horizonHours, setHorizonHours] = useState<ForecastHorizonHours>(48);
   const [forecast, setForecast] = useState<NetLoadForecast | null>(null);
@@ -80,6 +96,15 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<BacktestMetrics | null>(null);
   const [evidence, setEvidence] = useState<SolarEvidence | null>(null);
   const [calendar, setCalendar] = useState<CalendarHorizon | null>(null);
+  const [briefing, setBriefing] = useState<NationalBriefing | null>(null);
+  const [accuracy, setAccuracy] = useState<ForecastAccuracy | null>(null);
+  const [visibility, setVisibility] = useState<SolarVisibility | null>(null);
+  const [nationalForecast, setNationalForecast] = useState<NationalForecast | null>(null);
+  const [replayDates, setReplayDates] = useState<string[]>([]);
+  const [replayDay, setReplayDay] = useState("2026-08-09");
+  const [replay, setReplay] = useState<ReplayDay | null>(null);
+  const [replayLoading, setReplayLoading] = useState(false);
+  const [briefingLoading, setBriefingLoading] = useState(true);
   const [rooftopPoints, setRooftopPoints] = useState<RooftopPoint[]>([]);
   const [showRooftop, setShowRooftop] = useState(false);
   const [showFpv, setShowFpv] = useState(true);
@@ -159,18 +184,67 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const loadBriefing = useCallback(async () => {
+    setBriefingLoading(true);
+    try {
+      const [b, a, v, f, dates] = await Promise.all([
+        fetchNationalBriefing(),
+        fetchForecastAccuracy(7).catch(() => null),
+        fetchSolarVisibility().catch(() => null),
+        fetchNationalForecast(168).catch(() => null),
+        fetchReplayDates().catch(() => ({ dates: [] as string[] })),
+      ]);
+      setBriefing(b);
+      setAccuracy(a);
+      setVisibility(v);
+      setNationalForecast(f);
+      if (dates.dates.length) {
+        setReplayDates(dates.dates);
+        setReplayDay((prev) =>
+          dates.dates.includes(prev) ? prev : dates.dates[dates.dates.length - 1]
+        );
+      }
+    } catch {
+      setBriefing(null);
+    } finally {
+      setBriefingLoading(false);
+    }
+  }, []);
+
+  const loadReplay = useCallback(async (day: string) => {
+    setReplayLoading(true);
+    try {
+      const r = await fetchReplayDay(day);
+      setReplay(r);
+    } catch {
+      setReplay(null);
+    } finally {
+      setReplayLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadZoneData(zone, horizonHours);
   }, [zone, horizonHours, loadZoneData]);
 
   useEffect(() => {
     void loadStats();
+    void loadBriefing();
     void fetchFpvReservoirs()
       .then((r) => setFpvSeason(r.season))
       .catch(() => undefined);
-    const t = setInterval(() => void loadStats(), 5 * 60 * 1000);
+    const t = setInterval(() => {
+      void loadStats();
+      void loadBriefing();
+    }, 5 * 60 * 1000);
     return () => clearInterval(t);
-  }, [loadStats]);
+  }, [loadStats, loadBriefing]);
+
+  useEffect(() => {
+    if (tab === "replay" && replayDay) {
+      void loadReplay(replayDay);
+    }
+  }, [tab, replayDay, loadReplay]);
 
   async function handleRooftopToggle(next: boolean) {
     setShowRooftop(next);
@@ -259,30 +333,36 @@ export default function DashboardPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="status-led status-led-ok" />
                 <p className="font-mono-readout text-[0.65rem] font-medium uppercase tracking-[0.18em] text-[var(--ink-muted)]">
-                  System Control · EST mode
+                  Grid Digital Twin · NSO + AI
                 </p>
-                <span className="border border-[var(--warn)]/50 px-1.5 py-0.5 font-mono-readout text-[0.6rem] text-[var(--warn)]">
-                  NOT SCADA
+                <span className="border border-[var(--ok)]/50 px-1.5 py-0.5 font-mono-readout text-[0.6rem] text-[var(--ok)]">
+                  181-DAY ARCHIVE
                 </span>
               </div>
               <h1 className="font-display mt-1 text-2xl font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl">
                 SolarisPredict-SL
               </h1>
               <p className="font-body mt-1 max-w-2xl text-xs leading-relaxed text-[var(--ink-muted)] sm:text-sm">
-                Net-load co-pilot: rooftop ~1.9 GW is system-scale. Ramp oil
-                down, hold hydro for TOU peak — don&apos;t curtail solar by
-                default. Estimates from weather + published patterns.
+                Sri Lanka grid digital twin: official NSO operational data at
+                15-minute resolution, weather-driven national forecasts, and
+                dispatch intelligence.
               </p>
             </div>
             <div className="shrink-0 border border-[var(--line)] bg-[var(--panel)] px-3 py-2 sm:text-right">
               <p className="font-mono-readout text-[0.6rem] text-[var(--ink-muted)]">
-                ZONE
+                {tab === "briefing" || tab === "replay" ? "NATIONAL" : "ZONE"}
               </p>
               <p className="font-display text-lg font-semibold text-[var(--solar)] sm:text-xl">
-                {zoneLabel.toUpperCase()}
+                {tab === "briefing" || tab === "replay"
+                  ? "SRI LANKA"
+                  : zoneLabel.toUpperCase()}
               </p>
               <p className="font-mono-readout text-[0.65rem] text-[var(--ink-muted)]">
-                {horizonLabel} · Asia/Colombo
+                {tab === "replay"
+                  ? replayDay
+                  : tab === "briefing"
+                    ? "7-day foresight"
+                    : `${horizonLabel} · Asia/Colombo`}
               </p>
             </div>
           </div>
@@ -317,6 +397,31 @@ export default function DashboardPage() {
           <div className="mb-4 sm:mb-5">
             <ZoneSelector value={zone} onChange={setZone} />
           </div>
+        )}
+
+        {tab === "briefing" && (
+          <div className="space-y-3">
+            <NationalBriefingPanel
+              briefing={briefing}
+              accuracy={accuracy}
+              visibility={visibility}
+              forecast={nationalForecast}
+              loading={briefingLoading}
+            />
+            <ScenarioSimulator
+              onResult={(f) => setNationalForecast(f)}
+            />
+          </div>
+        )}
+
+        {tab === "replay" && (
+          <HistoricalReplayPanel
+            dates={replayDates}
+            day={replayDay}
+            replay={replay}
+            loading={replayLoading}
+            onDayChange={setReplayDay}
+          />
         )}
 
         {tab === "forecast" && (

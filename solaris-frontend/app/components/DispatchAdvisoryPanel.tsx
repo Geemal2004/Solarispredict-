@@ -10,7 +10,8 @@ interface DispatchAdvisoryPanelProps {
 
 function severityLabel(severity: string): string {
   const s = severity.toLowerCase();
-  if (s.includes("hosting") || s.includes("curtailment")) return "HOSTING RISK";
+  if (s.includes("hosting") || s.includes("curtailment") || s.includes("risk"))
+    return "OPERATIONAL RISK";
   if (s.includes("sustained")) return "SUSTAINED DIP";
   if (s === "normal") return "NORMAL";
   return severity.replace(/_/g, " ").toUpperCase();
