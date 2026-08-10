@@ -129,6 +129,40 @@ export function MethodologyPanel({
 
         <div>
           <h3 className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--demand)]">
+            Transmission network
+          </h3>
+          <ul className="mt-2 list-disc space-y-2 pl-5">
+            <li>
+              Substation locations and line routes from{" "}
+              <a
+                href="https://www.ceb.lk/front_img/17319937202023_CEB_Transmission_Network_Map.jpg"
+                className="text-[var(--demand)] underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                CEB Transmission Network Map (2023)
+              </a>{" "}
+              and public ADB/JICA planning documents.
+            </li>
+            <li>
+              One fully verified edge in this build:{" "}
+              <strong className="text-[var(--foreground)]">
+                Kotmale → Biyagama
+              </strong>{" "}
+              (220 kV, 4 circuits, 66 km, commissioned 1979 — Wikipedia: Kotmale
+              Biyagama transmission line). Remaining edges to be hand-traced from
+              the official map; do not infer topology from fragmented text lists.
+            </li>
+            <li>
+              Node balance and line-flow direction are{" "}
+              <strong className="text-[var(--foreground)]">modeled estimates</strong>,
+              not SCADA telemetry. India–Sri Lanka HVDC (2030 plan) is not shown.
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--demand)]">
             What is estimated vs official
           </h3>
           <ul className="mt-2 list-disc space-y-2 pl-5">
@@ -148,14 +182,15 @@ export function MethodologyPanel({
               TOU, RE must-run) — not CEB EMS.
             </li>
             <li>
-              <strong className="text-[var(--demand)]">Hosting risk</strong> —
-              net load &lt; 15% of zone peak demand; not a published curtailment
-              GWh series.
+              <strong className="text-[var(--demand)]">Net-load risk</strong> —
+              net load &lt; 15% of zone peak demand; system-level stress, not
+              distribution feeder hosting capacity.
             </li>
             <li>
               <strong className="text-[var(--demand)]">Map</strong> — town-level
               plant coords; synthetic rooftop sample summing to Digest rooftop
-              MW; FPV markers = potential.
+              MW; FPV markers = potential; transmission nodes/lines from CEB map
+              with modeled balance and heuristic flow arrows.
             </li>
           </ul>
         </div>

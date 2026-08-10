@@ -22,11 +22,15 @@ import {
   type Plant,
   type PlantType,
 } from "@/lib/plants";
-import type { RooftopPoint } from "@/lib/api";
+import { fmtEstMw } from "@/lib/mapPlayback";
+import type { GridNetwork, RooftopPoint } from "@/lib/api";
+import { TransmissionNetworkLayer } from "@/app/components/TransmissionNetworkLayer";
 
 const ALL_TYPES: PlantType[] = ["hydro", "coal", "oil", "wind", "solar"];
 const SL_CENTER: [number, number] = [7.85, 80.7];
 const SL_BOUNDS = L.latLngBounds([5.85, 79.5], [9.9, 82.0]);
+
+type MapViewMode = "generation" | "network";
 
 interface MapPanelProps {
   rooftopPoints?: RooftopPoint[];
@@ -37,10 +41,19 @@ interface MapPanelProps {
   showFpv?: boolean;
   onToggleFpv?: (next: boolean) => void;
   fpvSeason?: string;
-  /** Estimated MW output at selected hour — drives marker size. */
+  /** Estimated MW commitment at selected hour — drives marker size. */
   plantOutputs?: Record<string, number>;
   /** 0–1 solar intensity for rooftop layer opacity. */
   solarIntensity?: number;
+  /** National grid state mode — province coloring by net-load proxy. */
+  nationalMode?: boolean;
+  /** 0–1 operational stress for province fill intensity. */
+  gridStress?: number;
+  /** Transmission network snapshot from GET /grid/network. */
+  gridNetwork?: GridNetwork | null;
+  /** Map layer mode. */
+  viewMode?: MapViewMode;
+  onViewModeChange?: (mode: MapViewMode) => void;
 }
 
 function FitSriLanka() {
@@ -69,7 +82,15 @@ export function MapPanel({
   fpvSeason = "Feb–Apr peak resource",
   plantOutputs,
   solarIntensity = 0.5,
+  nationalMode = false,
+  gridStress = 0.35,
+  gridNetwork = null,
+  viewMode: viewModeProp,
+  onViewModeChange,
 }: MapPanelProps) {
+  const [internalViewMode, setInternalViewMode] = useState<MapViewMode>("network");
+  const viewMode = viewModeProp ?? internalViewMode;
+  const setViewMode = onViewModeChange ?? setInternalViewMode;
   const plants = plantsData as Plant[];
   const reservoirs = fpvData as {
     name: string;
@@ -128,10 +149,12 @@ export function MapPanel({
   }
 
   const provinceStyle = {
-    fillColor: "#1a222d",
-    fillOpacity: 0.35,
-    color: "#6eb6ff",
-    weight: 1,
+    fillColor: nationalMode
+      ? `rgb(${Math.round(36 + gridStress * 80)}, ${Math.round(48 - gridStress * 20)}, ${Math.round(64 - gridStress * 30)})`
+      : "#1a222d",
+    fillOpacity: nationalMode ? 0.35 + gridStress * 0.45 : 0.35,
+    color: nationalMode && gridStress > 0.6 ? "#e8a33d" : "#6eb6ff",
+    weight: nationalMode && gridStress > 0.6 ? 1.5 : 1,
     opacity: 0.7,
   };
 
@@ -140,15 +163,41 @@ export function MapPanel({
       <div className="flex flex-col gap-2 border-b border-[var(--line)] bg-[var(--panel-elevated)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-3">
         <div>
           <h2 className="font-display text-xs font-semibold uppercase tracking-wider text-[var(--foreground)]">
-            National generation map
+            {viewMode === "network"
+              ? "Transmission network map"
+              : nationalMode
+                ? "National grid state map"
+                : "National generation map"}
           </h2>
           <p className="font-mono-readout text-[0.65rem] text-[var(--ink-muted)]">
-            {hoveredProvince
-              ? hoveredProvince
-              : "OpenStreetMap · plants · rooftop · FPV"}
+            {viewMode === "network"
+              ? "CEB topology · modeled node balance · heuristic flow arrows"
+              : hoveredProvince
+                ? `${hoveredProvince} · net-load / solar proxy`
+                : nationalMode
+                  ? "Regions colored by operational stress · estimated commitments"
+                  : "OpenStreetMap · plants · rooftop · FPV"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex border border-[var(--line)]">
+            {(["network", "generation"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewMode(mode)}
+                className={[
+                  "font-display px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-wide outline-none",
+                  "focus-visible:ring-2 focus-visible:ring-[var(--solar)]",
+                  viewMode === mode
+                    ? "bg-[var(--mist)] text-[var(--foreground)]"
+                    : "text-[var(--ink-muted)]",
+                ].join(" ")}
+              >
+                {mode === "network" ? "Network" : "Generation"}
+              </button>
+            ))}
+          </div>
           {onToggleFpv ? (
             <button
               type="button"
@@ -234,6 +283,10 @@ export function MapPanel({
             />
           ) : null}
 
+          {viewMode === "network" ? (
+            <TransmissionNetworkLayer network={gridNetwork} />
+          ) : null}
+
           {showRooftop &&
             rooftopPoints.map((pt, i) => (
               <CircleMarker
@@ -268,14 +321,16 @@ export function MapPanel({
               </Marker>
             ))}
 
-          {visiblePlants.map((plant) => {
-            const outputMw =
+          {viewMode === "generation" &&
+            visiblePlants.map((plant) => {
+            const commitmentMw =
               plantOutputs?.[plant.name] ?? plant.capacity_mw * 0.55;
-            const r = plantRadius(Math.max(outputMw, plant.capacity_mw * 0.08));
+            const r = plantRadius(Math.max(commitmentMw, plant.capacity_mw * 0.08));
             const color = PLANT_COLORS[plant.type];
             const hl = dispatchHighlight?.[plant.name] ?? 0;
             const util =
-              plant.capacity_mw > 0 ? outputMw / plant.capacity_mw : 0;
+              plant.capacity_mw > 0 ? commitmentMw / plant.capacity_mw : 0;
+            const confidence = Math.min(0.95, 0.55 + hl * 0.35);
 
             return (
               <CircleMarker
@@ -284,7 +339,7 @@ export function MapPanel({
                 radius={r + hl * 3}
                 pathOptions={{
                   fillColor: color,
-                  fillOpacity: 0.55 + util * 0.35,
+                  fillOpacity: 0.45 + util * 0.4,
                   color: hl > 0 ? "#f4f7fa" : "#c5d0de",
                   weight: hl > 0 ? 2.5 : 1.2,
                 }}
@@ -293,14 +348,14 @@ export function MapPanel({
                   <div className="text-xs">
                     <p className="font-semibold">{plant.name}</p>
                     <p>
-                      {PLANT_LABELS[plant.type]} · est. {outputMw.toFixed(0)} MW
-                      {" / "}
-                      {plant.capacity_mw} MW
+                      {PLANT_LABELS[plant.type]} · est. commitment{" "}
+                      {fmtEstMw(commitmentMw)} MW
                     </p>
-                    <p>{plant.note}</p>
-                    {hl > 0 ? (
-                      <p>Advisory weight: {(hl * 100).toFixed(0)}%</p>
-                    ) : null}
+                    <p>
+                      est. utilization {(util * 100).toFixed(0)}% · conf{" "}
+                      {(confidence * 100).toFixed(0)}%
+                    </p>
+                    <p className="text-[0.65rem] opacity-80">{plant.note}</p>
                   </div>
                 </Tooltip>
               </CircleMarker>
@@ -311,7 +366,24 @@ export function MapPanel({
 
       <div className="grid gap-3 border-t border-[var(--line)] px-3 py-3 sm:grid-cols-[1fr_auto] sm:px-4">
         <div className="flex flex-wrap gap-2">
-          {ALL_TYPES.map((t) => {
+          {viewMode === "network" ? (
+            <>
+              <span className="inline-flex items-center gap-1.5 border border-[var(--solar)]/40 bg-[var(--solar-wash)] px-2 py-1 text-[0.65rem] font-medium text-[var(--demand)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--solar)]" aria-hidden />
+                Net exporter (modeled)
+              </span>
+              <span className="inline-flex items-center gap-1.5 border border-indigo-400/30 bg-indigo-950/40 px-2 py-1 text-[0.65rem] font-medium text-[var(--demand)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-indigo-400" aria-hidden />
+                Net importer (modeled)
+              </span>
+              {gridNetwork?.as_of ? (
+                <span className="font-mono-readout text-[0.65rem] text-[var(--ink-muted)]">
+                  As of {gridNetwork.as_of.slice(11, 16)} · {gridNetwork.edges.length} verified line(s)
+                </span>
+              ) : null}
+            </>
+          ) : (
+            ALL_TYPES.map((t) => {
             const on = activeTypes.has(t);
             return (
               <button
@@ -337,7 +409,8 @@ export function MapPanel({
                 </span>
               </button>
             );
-          })}
+          })
+          )}
           {showRooftop ? (
             <span className="inline-flex items-center gap-1.5 border border-[var(--solar)]/35 bg-[var(--solar-wash)] px-2 py-1 text-[0.65rem] font-medium text-[var(--demand)]">
               <span
@@ -354,11 +427,10 @@ export function MapPanel({
             </span>
           ) : null}
         </div>
-        <p className="font-body max-w-sm text-[0.65rem] leading-relaxed text-[var(--ink-muted)] sm:text-right">
-          Real basemap (CARTO dark / OSM). Marker size tracks estimated output
-          at the selected timeline hour. Locations are town-level approximate.
-          Rooftop dots are synthetic. FPV markers are iPURSE 2025 candidates.
-          Boundaries: geoBoundaries LKA ADM1 (ODbL).
+        <p className="font-body max-w-prose text-[0.65rem] leading-relaxed text-[var(--ink-muted)] sm:text-right">
+          {viewMode === "network" && gridNetwork?.map_caption
+            ? gridNetwork.map_caption
+            : "Estimated commitments from merit-order model — not SCADA MW/nameplate pairs. Marker intensity = utilization; tooltip shows confidence band."}
         </p>
       </div>
     </div>

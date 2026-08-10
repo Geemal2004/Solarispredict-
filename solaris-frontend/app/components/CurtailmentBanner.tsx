@@ -1,6 +1,7 @@
 "use client";
 
 import type { NetLoadForecast } from "@/lib/api";
+import { operationalRiskLabel, operationalRiskLevel } from "@/lib/opsAnalytics";
 
 interface OperationalRiskBannerProps {
   forecast: NetLoadForecast | null;
@@ -23,15 +24,18 @@ function firstRiskTime(forecast: NetLoadForecast): string | null {
 export function OperationalRiskBanner({ forecast }: OperationalRiskBannerProps) {
   if (!forecast) return null;
 
-  const anyRisk = forecast.any_hosting_risk ?? forecast.any_curtailment_risk;
-  const when = anyRisk ? firstRiskTime(forecast) : null;
   const threshold =
-    forecast.risk_threshold_mw ?? forecast.curtailment_threshold_mw;
+    forecast.risk_threshold_mw ?? forecast.curtailment_threshold_mw ?? 375;
+  const riskIntervals = forecast.points.filter(
+    (p) => p.hosting_risk || p.curtailment_risk
+  ).length;
+  const minNet = Math.min(...forecast.points.map((p) => p.net_load_mw), Infinity);
+  const risk = operationalRiskLevel(minNet, threshold, riskIntervals);
+  const riskLabel = operationalRiskLabel(risk);
+  const when = riskIntervals > 0 ? firstRiskTime(forecast) : null;
   const ramp = forecast.evening_ramp_mw;
 
-  if (!anyRisk && (ramp == null || ramp === 0)) return null;
-
-  const riskLevel = anyRisk ? "High operational risk" : "Moderate operational risk";
+  if (risk === "low" && (ramp == null || ramp === 0)) return null;
 
   return (
     <aside
@@ -44,35 +48,32 @@ export function OperationalRiskBanner({ forecast }: OperationalRiskBannerProps) 
           <span
             className={[
               "status-led",
-              anyRisk ? "status-led-alarm animate-blink-alarm" : "status-led-warn",
+              risk === "high"
+                ? "status-led-alarm animate-blink-alarm"
+                : "status-led-warn",
             ].join(" ")}
           />
           <p className="font-display text-xs font-semibold uppercase tracking-wider text-[var(--risk)]">
-            {riskLevel}
+            {riskLabel}
           </p>
         </div>
         {threshold != null ? (
           <span className="font-mono-readout text-[0.65rem] text-[var(--ink-muted)]">
-            THR {threshold.toFixed(0)} MW · 15% peak
+            THR {threshold.toFixed(0)} MW net load
           </span>
         ) : null}
       </div>
       <p className="px-3 py-2.5 font-body text-sm leading-relaxed text-[var(--foreground)] sm:px-4">
-        {anyRisk
-          ? when
-            ? `Net load below operational threshold around ${when}. `
-            : `Net load dips below operational-risk threshold. `
-          : ""}
+        {when ? `Elevated net-load stress expected around ${when}. ` : ""}
         {ramp != null
           ? `Midday→evening ramp ≈ ${ramp} MW into TOU 18:30–22:30. `
           : ""}
-        Net-load operational risk signal — not distribution hosting capacity.
-        Prefer oil ramp-down 60–90 min ahead; conserve hydro for evening peak.
+        Net-load operational risk — not distribution hosting capacity. Prefer oil
+        ramp-down 60–90 min ahead; conserve hydro for evening peak.
       </p>
     </aside>
   );
 }
 
-/** @deprecated use OperationalRiskBanner */
 export const HostingRiskBanner = OperationalRiskBanner;
 export const CurtailmentBanner = OperationalRiskBanner;

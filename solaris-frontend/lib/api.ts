@@ -191,14 +191,30 @@ export interface DispatchAdvisory {
     severity: string;
     confidence: number;
     plants: string[];
-    actions?: {
-      plant: string;
-      action: string;
-      mw: number | null;
-      confidence: number;
-    }[];
+    actions?: DispatchAction[];
     text: string;
   }[];
+}
+
+export interface DispatchAction {
+  plant: string;
+  action: string;
+  mw: number | null;
+  confidence: number;
+  at_time?: string | null;
+  schedule_line?: string;
+}
+
+export interface NationalDispatchScheduleResponse {
+  scope: string;
+  hours: number;
+  confidence_pct: number;
+  schedule: { plant: string; action: string; confidence: number }[];
+  context?: {
+    min_net_load_mw?: number | null;
+    evening_ramp_mw?: number | null;
+  };
+  methodology: string;
 }
 
 export interface FpvReservoirs {
@@ -237,6 +253,12 @@ export interface NationalBriefing {
   source: string;
 }
 
+export interface ReplayForecastSlice {
+  demand_mw: number | null;
+  solar_mw: number | null;
+  net_load_mw: number | null;
+}
+
 export interface ReplayPoint {
   timestamp: string;
   demand_mw: number;
@@ -251,6 +273,29 @@ export interface ReplayPoint {
   biomass_mw: number;
   temp_c: number | null;
   cloud_cover_pct: number | null;
+  forecast_persistence?: ReplayForecastSlice;
+  forecast_model?: ReplayForecastSlice;
+}
+
+export interface ReplayValidationMetrics {
+  label: string;
+  demand_mae_mw: number | null;
+  solar_mae_mw: number | null;
+  net_load_mae_mw: number | null;
+  peak_timing_error_min: number | null;
+  ramp_timing_error_min: number | null;
+  evening_ramp_actual_mw?: number | null;
+  evening_ramp_forecast_mw?: number | null;
+}
+
+export interface ReplayValidation {
+  method: string;
+  persistence: ReplayValidationMetrics;
+  model: ReplayValidationMetrics;
+  holdout_reference?: Record<
+    string,
+    { mae_mw: number; rmse_mw: number; mape_pct: number; r2: number }
+  >;
 }
 
 export interface ReplayDay {
@@ -267,6 +312,7 @@ export interface ReplayDay {
     solar_visibility_pct: number;
   };
   n_points: number;
+  validation?: ReplayValidation;
 }
 
 export interface ForecastAccuracy {
@@ -290,7 +336,9 @@ export interface NationalForecastPoint {
   solar_mw: number;
   net_load_mw: number;
   net_load_p10_mw?: number;
+  net_load_p50_mw?: number;
   net_load_p90_mw?: number;
+  prob_below_threshold_pct?: number;
   cloud_cover_pct?: number;
   temp_c?: number;
   ghi_wm2?: number;
@@ -311,11 +359,19 @@ export interface NationalForecast {
     peak_demand_mw: number;
     peak_solar_mw: number;
     min_net_load_mw: number;
+    min_net_load_p10_mw?: number | null;
+    max_prob_below_threshold_pct?: number | null;
     evening_ramp_mw: number | null;
     mean_cloud_pct: number;
     hosting_risk_intervals: number;
   }[];
   anchor_timestamp: string;
+  uncertainty?: {
+    method: string;
+    holdout_days: number;
+    n_bootstrap: number;
+    n_residuals: number;
+  };
   scenario?: Record<string, unknown>;
 }
 
@@ -325,6 +381,81 @@ export interface SolarVisibility {
   scada_solar_mwh: number;
   system_solar_estimate_mwh: number;
   insight: string;
+}
+
+export interface WeatherAnomalySummary {
+  cloud_forecast_pct: number | null;
+  cloud_climatology_pct: number | null;
+  cloud_delta_pp: number | null;
+  ghi_forecast_wm2: number | null;
+  ghi_climatology_wm2: number | null;
+  ghi_delta_pct: number | null;
+  temp_forecast_c: number | null;
+  temp_climatology_c: number | null;
+  temp_delta_c: number | null;
+}
+
+export interface ZoneWeatherAnomaly {
+  zone: string;
+  label: string;
+  lat: number;
+  lon: number;
+  intervals: number;
+  summary: WeatherAnomalySummary;
+  flags: string[];
+  hourly: Record<string, unknown>[];
+}
+
+export interface NationalWeatherAnomaly {
+  method: string;
+  climatology_source: string;
+  climatology_years: string;
+  forecast_source: string;
+  hours: number;
+  zones: ZoneWeatherAnomaly[];
+  missing_zones: string[];
+  national: {
+    cloud_delta_pp: number | null;
+    ghi_delta_pct: number | null;
+    zones_flagged: number;
+  };
+}
+
+export interface GridNetworkNode {
+  name: string;
+  voltage_kv: number;
+  type: string;
+  lat: number;
+  lon: number;
+  generation_mw: number;
+  demand_mw: number;
+  net_injection_mw: number;
+  role: string;
+}
+
+export interface GridNetworkEdge {
+  from: string;
+  to: string;
+  voltage_kv: number;
+  circuits?: number;
+  length_km?: number;
+  commissioned?: number;
+  source?: string;
+  flow_direction: { from: string; to: string } | null;
+  flow_magnitude_estimate: number;
+}
+
+export interface GridNetwork {
+  as_of: string;
+  national_demand_mw: number;
+  point_index: number;
+  methodology: Record<string, string>;
+  topology_source?: string;
+  ceb_map_url?: string;
+  edge_completion_note?: string;
+  map_caption: string;
+  nodes: GridNetworkNode[];
+  edges: GridNetworkEdge[];
 }
 
 function apiBase(): string {
@@ -424,8 +555,24 @@ export function fetchSolarVisibility() {
   return getJson<SolarVisibility>("/ops/visibility");
 }
 
+export function fetchWeatherAnomaly(hours = 24) {
+  return getJson<NationalWeatherAnomaly>(`/ops/weather-anomaly?hours=${hours}`);
+}
+
+export function fetchGridNetwork(hours = 168, pointIndex = 0) {
+  return getJson<GridNetwork>(
+    `/grid/network?hours=${hours}&point_index=${pointIndex}`
+  );
+}
+
 export function fetchNationalForecast(hours = 168) {
   return getJson<NationalForecast>(`/forecast/national?hours=${hours}`);
+}
+
+export function fetchNationalDispatchSchedule(hours = 168) {
+  return getJson<NationalDispatchScheduleResponse>(
+    `/ops/dispatch-schedule?hours=${hours}`
+  );
 }
 
 export function fetchNationalScenario(params: {

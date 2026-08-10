@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.demand_model import calendar_horizon
-from app.dispatch_advisor import build_dispatch_advisory
+from app.dispatch_advisor import build_dispatch_advisory, build_national_dispatch_schedule
 from app.forecast import forecast_netload, forecast_solar, forecast_solar_quantiles
 from app.national_stats import live_national_estimate, load_ceb_baseline
 from app.nso_forecast import apply_scenario, forecast_national
@@ -23,7 +23,8 @@ from app.nso_ops import (
     replay_day,
     solar_visibility_index,
 )
-from app.rooftop_generator import generate_rooftop_sample
+from app.grid_injection import build_grid_network
+from app.weather_climatology import national_weather_anomaly, zone_weather_anomaly
 from app.train_nso_models import load_nso_metrics
 from app.train_solar_model import load_metrics
 from app.zones import VALID_ZONES, ZONES
@@ -84,6 +85,17 @@ def get_national_briefing():
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+@app.get("/ops/dispatch-schedule")
+def get_national_dispatch_schedule(hours: int = Query(168, ge=1, le=168)):
+    """Concrete national merit-order dispatch schedule (plant, MW, time)."""
+    try:
+        return build_national_dispatch_schedule(hours=hours)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Schedule failed: {exc}") from exc
+
+
 @app.get("/ops/replay")
 def get_replay(day: str = Query(..., description="YYYY-MM-DD")):
     """Historical day reconstruction from NSO archive."""
@@ -121,6 +133,27 @@ def get_solar_visibility():
         return solar_visibility_index()
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/ops/weather-anomaly")
+def get_weather_anomaly(
+    hours: int = Query(24, ge=1, le=168),
+    zone: str | None = Query(None, description="Optional single zone"),
+):
+    """Forecast vs NASA POWER climatology — deviation stats only, no narrative."""
+    try:
+        if zone:
+            _validate_zone(zone)
+            return zone_weather_anomaly(zone, hours=hours)
+        return national_weather_anomaly(hours=hours)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502, detail=f"Weather anomaly failed: {exc}"
+        ) from exc
 
 
 @app.get("/ops/models")
@@ -333,7 +366,7 @@ def get_national_stats():
             "avoidable_curtailment": {
                 "mwh_next_hour": 0.0,
                 "rs_million_illustrative": 0.0,
-                "note": "See national forecast hosting-risk intervals",
+                "note": "See national forecast net-load risk intervals",
             },
             "labels": {"footer": briefing["archive"]["statement"]},
             "national_digest_reference": {
@@ -357,6 +390,22 @@ def get_national_stats():
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"National stats failed: {exc}") from exc
 
+
+
+@app.get("/grid/network")
+def get_grid_network(
+    hours: int = Query(168, ge=1, le=168),
+    point_index: int = Query(0, ge=0, le=672),
+):
+    """Transmission nodes with modeled net injection and heuristic line flow."""
+    try:
+        return build_grid_network(hours=hours, point_index=point_index)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Grid network failed: {exc}") from exc
 
 
 @app.get("/map/fpv-reservoirs")

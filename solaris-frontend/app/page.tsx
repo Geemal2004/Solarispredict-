@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BacktestAccuracyPanel } from "@/app/components/BacktestAccuracyPanel";
-import { HostingRiskBanner } from "@/app/components/CurtailmentBanner";
+import { OperationalRiskBanner } from "@/app/components/CurtailmentBanner";
 import { DispatchAdvisoryPanel } from "@/app/components/DispatchAdvisoryPanel";
 import { EvidenceDrawer } from "@/app/components/EvidenceDrawer";
 import { FeatureImportancePanel } from "@/app/components/FeatureImportancePanel";
@@ -17,8 +17,9 @@ import { HistoricalReplayPanel } from "@/app/components/HistoricalReplayPanel";
 import { LiveStatCards } from "@/app/components/LiveStatCards";
 import { MapAdvancedStats } from "@/app/components/MapAdvancedStats";
 import { MethodologyPanel } from "@/app/components/MethodologyPanel";
-import { NationalBriefingPanel } from "@/app/components/NationalBriefingPanel";
+import { NationalDispatchSchedule } from "@/app/components/NationalDispatchSchedule";
 import { NetLoadChart } from "@/app/components/NetLoadChart";
+import { OperationsConsole } from "@/app/components/OperationsConsole";
 import { ResearchEvidence } from "@/app/components/ResearchEvidence";
 import { ScenarioSimulator } from "@/app/components/ScenarioSimulator";
 import { SectorBreakdown } from "@/app/components/SectorBreakdown";
@@ -34,23 +35,29 @@ import {
   fetchForecastAccuracy,
   fetchFpvReservoirs,
   fetchNationalBriefing,
+  fetchNationalDispatchSchedule,
   fetchNationalForecast,
   fetchNationalStats,
   fetchNetLoadForecast,
+  fetchGridNetwork,
   fetchReplayDates,
   fetchReplayDay,
   fetchRooftopSample,
   fetchSolarEvidence,
   fetchSolarQuantiles,
   fetchSolarVisibility,
+  fetchWeatherAnomaly,
   type BacktestMetrics,
   type CalendarHorizon,
   type CebBaseline,
   type DispatchAdvisory,
   type ForecastAccuracy,
   type NationalBriefing,
+  type NationalDispatchScheduleResponse,
   type NationalForecast,
   type NationalStats,
+  type NationalWeatherAnomaly,
+  type GridNetwork,
   type NetLoadForecast,
   type ReplayDay,
   type RooftopPoint,
@@ -59,6 +66,10 @@ import {
   type Zone,
   ZONES,
 } from "@/lib/api";
+import {
+  nationalForecastAsNetLoad,
+  nextOpsTimelineEvent,
+} from "@/lib/opsAnalytics";
 import { estimatePlantOutputs } from "@/lib/mapPlayback";
 import type { Plant } from "@/lib/plants";
 
@@ -77,12 +88,12 @@ const MapPanel = dynamic(
 type TabId = "briefing" | "replay" | "forecast" | "map" | "advisory" | "methodology";
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: "briefing", label: "Grid Briefing" },
-  { id: "replay", label: "Historical Replay" },
-  { id: "forecast", label: "Zone Forecast" },
-  { id: "map", label: "National Map" },
-  { id: "advisory", label: "Dispatch Advisory" },
-  { id: "methodology", label: "Methodology" },
+  { id: "briefing", label: "Operations" },
+  { id: "forecast", label: "Forecast" },
+  { id: "replay", label: "Replay" },
+  { id: "map", label: "Network" },
+  { id: "advisory", label: "Dispatch" },
+  { id: "methodology", label: "Intelligence" },
 ];
 
 export default function DashboardPage() {
@@ -99,7 +110,11 @@ export default function DashboardPage() {
   const [briefing, setBriefing] = useState<NationalBriefing | null>(null);
   const [accuracy, setAccuracy] = useState<ForecastAccuracy | null>(null);
   const [visibility, setVisibility] = useState<SolarVisibility | null>(null);
+  const [weatherAnomaly, setWeatherAnomaly] = useState<NationalWeatherAnomaly | null>(null);
+  const [gridNetwork, setGridNetwork] = useState<GridNetwork | null>(null);
   const [nationalForecast, setNationalForecast] = useState<NationalForecast | null>(null);
+  const [dispatchSchedule, setDispatchSchedule] = useState<NationalDispatchScheduleResponse | null>(null);
+  const [previousNationalForecast, setPreviousNationalForecast] = useState<NationalForecast | null>(null);
   const [replayDates, setReplayDates] = useState<string[]>([]);
   const [replayDay, setReplayDay] = useState("2026-08-09");
   const [replay, setReplay] = useState<ReplayDay | null>(null);
@@ -187,17 +202,24 @@ export default function DashboardPage() {
   const loadBriefing = useCallback(async () => {
     setBriefingLoading(true);
     try {
-      const [b, a, v, f, dates] = await Promise.all([
+      const [b, a, v, f, dates, sched, wx] = await Promise.all([
         fetchNationalBriefing(),
         fetchForecastAccuracy(7).catch(() => null),
         fetchSolarVisibility().catch(() => null),
         fetchNationalForecast(168).catch(() => null),
         fetchReplayDates().catch(() => ({ dates: [] as string[] })),
+        fetchNationalDispatchSchedule(168).catch(() => null),
+        fetchWeatherAnomaly(24).catch(() => null),
       ]);
       setBriefing(b);
       setAccuracy(a);
       setVisibility(v);
-      setNationalForecast(f);
+      setWeatherAnomaly(wx);
+      setDispatchSchedule(sched);
+      setNationalForecast((prev) => {
+        if (prev && f) setPreviousNationalForecast(prev);
+        return f;
+      });
       if (dates.dates.length) {
         setReplayDates(dates.dates);
         setReplayDay((prev) =>
@@ -264,28 +286,69 @@ export default function DashboardPage() {
   const zoneLabel = ZONES.find((z) => z.id === zone)?.label ?? zone;
   const horizonLabel = formatHorizonLabel(horizonHours);
 
-  const points = forecast?.points ?? [];
+  const points = useMemo(() => forecast?.points ?? [], [forecast?.points]);
   const safeHourIndex = Math.min(hourIndex, Math.max(0, points.length - 1));
   const selectedPoint = points[safeHourIndex] ?? null;
 
+  const nationalNetLoadForecast = useMemo(
+    () => nationalForecastAsNetLoad(nationalForecast),
+    [nationalForecast]
+  );
+
+  const nationalPlaybackPoints = useMemo((): import("@/lib/api").NetLoadPoint[] => {
+    if (!nationalForecast?.points.length) return points;
+    return nationalForecast.points.map((p) => ({
+      timestamp: p.timestamp,
+      solar_mw: p.solar_mw,
+      demand_mw: p.demand_mw,
+      net_load_mw: p.net_load_mw,
+      curtailment_risk: p.hosting_risk ?? false,
+      hosting_risk: p.hosting_risk,
+      tou_peak: p.tou_peak,
+      weather_regime: p.weather_regime,
+      ghi_wm2: p.ghi_wm2,
+      cloudcover_pct: p.cloud_cover_pct,
+    }));
+  }, [nationalForecast, points]);
+
+  const mapPoints = tab === "map" && nationalPlaybackPoints.length ? nationalPlaybackPoints : points;
+  const mapPointIndex = Math.min(hourIndex, Math.max(0, mapPoints.length - 1));
+  const mapSelectedPoint = mapPoints[mapPointIndex] ?? selectedPoint;
+
   useEffect(() => {
-    if (!playing || points.length === 0) return;
+    if (tab !== "map") return;
+    let cancelled = false;
+    fetchGridNetwork(168, mapPointIndex)
+      .then((g) => {
+        if (!cancelled) setGridNetwork(g);
+      })
+      .catch(() => {
+        if (!cancelled) setGridNetwork(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, mapPointIndex]);
+
+  useEffect(() => {
+    const playbackLen = tab === "map" ? mapPoints.length : points.length;
+    if (!playing || playbackLen === 0) return;
     const id = window.setInterval(() => {
       setHourIndex((prev) => {
         const next = prev + 1;
-        if (next >= points.length) {
+        if (next >= playbackLen) {
           setPlaying(false);
-          return points.length - 1;
+          return playbackLen - 1;
         }
         return next;
       });
     }, 650);
     return () => window.clearInterval(id);
-  }, [playing, points.length]);
+  }, [playing, points.length, mapPoints.length, tab]);
 
   const plantOutputs = useMemo(
-    () => estimatePlantOutputs(plants, selectedPoint, advisory),
-    [plants, selectedPoint, advisory]
+    () => estimatePlantOutputs(plants, mapSelectedPoint ?? selectedPoint, advisory),
+    [plants, mapSelectedPoint, selectedPoint, advisory]
   );
 
   const solarCap = useMemo(
@@ -295,12 +358,29 @@ export default function DashboardPage() {
         .reduce((s, p) => s + p.capacity_mw, 0) || 1,
     [plants]
   );
-  const solarIntensity = selectedPoint
-    ? Math.min(1, Math.max(0, selectedPoint.solar_mw / solarCap))
+  const solarIntensity = (mapSelectedPoint ?? selectedPoint)
+    ? Math.min(
+        1,
+        Math.max(
+          0,
+          (mapSelectedPoint ?? selectedPoint)!.solar_mw / solarCap
+        )
+      )
     : 0.4;
+
+  const mapForecast =
+    tab === "map" && nationalNetLoadForecast
+      ? nationalNetLoadForecast
+      : forecast;
 
   const dispatchHighlight = useMemo(() => {
     const map: Record<string, number> = {};
+    if (tab === "map" || tab === "briefing" || tab === "advisory") {
+      for (const row of dispatchSchedule?.schedule ?? []) {
+        map[row.plant] = Math.max(map[row.plant] ?? 0, row.confidence);
+      }
+      if (Object.keys(map).length) return map;
+    }
     if (!advisory) return map;
     const match = selectedPoint
       ? advisory.recommendations.find(
@@ -319,7 +399,14 @@ export default function DashboardPage() {
       }
     }
     return map;
-  }, [advisory, selectedPoint]);
+  }, [advisory, selectedPoint, tab, dispatchSchedule]);
+
+  const gridStress = useMemo(() => {
+    if (!mapSelectedPoint || !nationalForecast) return 0.35;
+    const threshold = nationalForecast.risk_threshold_mw ?? 600;
+    const ratio = mapSelectedPoint.net_load_mw / threshold;
+    return Math.max(0.15, Math.min(0.95, 1 - ratio * 0.5));
+  }, [mapSelectedPoint, nationalForecast]);
 
   return (
     <main className="relative min-h-screen overflow-x-hidden">
@@ -350,19 +437,17 @@ export default function DashboardPage() {
             </div>
             <div className="shrink-0 border border-[var(--line)] bg-[var(--panel)] px-3 py-2 sm:text-right">
               <p className="font-mono-readout text-[0.6rem] text-[var(--ink-muted)]">
-                {tab === "briefing" || tab === "replay" ? "NATIONAL" : "ZONE"}
+                NATIONAL SYSTEM
               </p>
               <p className="font-display text-lg font-semibold text-[var(--solar)] sm:text-xl">
-                {tab === "briefing" || tab === "replay"
-                  ? "SRI LANKA"
-                  : zoneLabel.toUpperCase()}
+                SRI LANKA
               </p>
               <p className="font-mono-readout text-[0.65rem] text-[var(--ink-muted)]">
                 {tab === "replay"
                   ? replayDay
-                  : tab === "briefing"
-                    ? "7-day foresight"
-                    : `${horizonLabel} · Asia/Colombo`}
+                  : tab === "forecast"
+                    ? `Zone analysis · ${zoneLabel}`
+                    : "Asia/Colombo · 15-min NSO"}
               </p>
             </div>
           </div>
@@ -393,24 +478,31 @@ export default function DashboardPage() {
           })}
         </nav>
 
-        {(tab === "forecast" || tab === "advisory" || tab === "map") && (
+        {tab === "forecast" && (
           <div className="mb-4 sm:mb-5">
+            <p className="font-mono-readout mb-2 text-[0.65rem] uppercase tracking-wide text-[var(--ink-muted)]">
+              Zone analysis module
+            </p>
             <ZoneSelector value={zone} onChange={setZone} />
           </div>
         )}
 
         {tab === "briefing" && (
           <div className="space-y-3">
-            <NationalBriefingPanel
+            <OperationsConsole
               briefing={briefing}
               accuracy={accuracy}
               visibility={visibility}
               forecast={nationalForecast}
+              previousForecast={previousNationalForecast}
+              weatherAnomaly={weatherAnomaly}
               loading={briefingLoading}
             />
-            <ScenarioSimulator
-              onResult={(f) => setNationalForecast(f)}
+            <NationalDispatchSchedule
+              schedule={dispatchSchedule}
+              loading={briefingLoading}
             />
+            <ScenarioSimulator onResult={(f) => setNationalForecast(f)} />
           </div>
         )}
 
@@ -426,6 +518,32 @@ export default function DashboardPage() {
 
         {tab === "forecast" && (
           <div className="space-y-3">
+            <div className="scada-panel px-4 py-3">
+              <p className="font-mono-readout text-[0.65rem] uppercase tracking-wide text-[var(--ink-muted)]">
+                National context
+              </p>
+              <p className="font-body mt-1 text-sm text-[var(--foreground)]">
+                {briefing
+                  ? `Net load ${briefing.kpis.net_load_mw.toFixed(0)} MW · demand ${briefing.kpis.demand_now_mw.toFixed(0)} MW · solar est. ${briefing.kpis.solar_estimate_mw.toFixed(0)} MW`
+                  : "Loading national briefing…"}
+                {(() => {
+                  const evt = nextOpsTimelineEvent(
+                    nationalForecast,
+                    briefing?.as_of ?? null
+                  );
+                  return evt ? ` · Next: ${evt.time} · ${evt.label}` : "";
+                })()}
+              </p>
+              <p className="font-mono-readout mt-1 text-[0.6rem] text-[var(--ink-muted)]">
+                Zone drill-down below is illustrative — national operations are on the Operations tab.
+              </p>
+            </div>
+
+            <details className="scada-panel" open>
+              <summary className="scada-panel-header cursor-pointer list-none font-mono-readout text-[0.65rem] uppercase tracking-wide text-[var(--ink-muted)]">
+                Zone analysis drill-down · {zoneLabel}
+              </summary>
+              <div className="space-y-3 p-2">
             <StateOfGridStrip baseline={ceb} />
 
             <DispatchAdvisoryPanel
@@ -515,14 +633,14 @@ export default function DashboardPage() {
               )}
 
               <p className="mt-2 font-mono-readout text-[0.65rem] leading-relaxed text-[var(--ink-muted)]">
-                Zone-scale calendar demand (not CEB SCC) · horizon {horizonLabel}{" "}
-                · brush to zoom · TOU 18:30–22:30 · hosting risk &lt;15% zone peak
+                Zone analysis · illustrative calendar demand · horizon {horizonLabel}{" "}
+                · operational risk when net load &lt;15% zone peak
                 · gold = solar P10–P90 · green = net load · blue = demand
               </p>
               </div>
             </section>
 
-            <HostingRiskBanner forecast={forecast} />
+            <OperationalRiskBanner forecast={forecast} />
             <EvidenceDrawer />
             <SectorBreakdown stats={stats} />
 
@@ -530,20 +648,22 @@ export default function DashboardPage() {
               <BacktestAccuracyPanel metrics={metrics} />
               <FeatureImportancePanel metrics={metrics} />
             </div>
+              </div>
+            </details>
           </div>
         )}
 
         {tab === "map" && (
           <div className="space-y-4">
             <TimelineSlider
-              points={points}
-              hourIndex={safeHourIndex}
+              points={mapPoints}
+              hourIndex={mapPointIndex}
               onHourIndexChange={setHourIndex}
               playing={playing}
               onPlayingChange={setPlaying}
-              loading={loading}
-              zoneLabel={zoneLabel}
-              horizonLabel={horizonLabel}
+              loading={briefingLoading}
+              zoneLabel="Sri Lanka"
+              horizonLabel="National 7d"
             />
             <MapPanel
               rooftopPoints={rooftopPoints}
@@ -556,30 +676,44 @@ export default function DashboardPage() {
               fpvSeason={fpvSeason}
               plantOutputs={plantOutputs}
               solarIntensity={solarIntensity}
+              nationalMode
+              gridStress={gridStress}
+              gridNetwork={gridNetwork}
             />
             <MapAdvancedStats
-              forecast={forecast}
-              point={selectedPoint}
-              hourIndex={safeHourIndex}
+              forecast={mapForecast}
+              point={mapSelectedPoint}
+              hourIndex={mapPointIndex}
               plants={plants}
               plantOutputs={plantOutputs}
-              loading={loading}
+              loading={briefingLoading}
+              nationalMode
             />
             <p className="font-body text-xs text-[var(--ink-muted)]">
-              Playback drives marker size from zone forecast + merit-order
-              estimates (not SCADA). Rooftop layer sums to CEB Digest 2025
-              (~1,935 MW) as synthetic points. Square markers = iPURSE 2025 FPV
-              candidates (potential, not built).
+              Network view: CEB substation topology with modeled net injection (amber =
+              exporter, indigo = importer). Flow arrows are heuristic — not solved power
+              flow. Generation view uses national NSO-anchored forecast playback.
             </p>
           </div>
         )}
 
         {tab === "advisory" && (
           <div className="space-y-5">
-            <DispatchAdvisoryPanel
-              advisory={advisory}
-              loading={advisoryLoading}
+            <NationalDispatchSchedule
+              schedule={dispatchSchedule}
+              loading={briefingLoading}
             />
+            <details className="scada-panel">
+              <summary className="scada-panel-header cursor-pointer list-none font-mono-readout text-[0.65rem] uppercase tracking-wide text-[var(--ink-muted)]">
+                Zone merit-order detail · {zoneLabel}
+              </summary>
+              <div className="p-2">
+                <ZoneSelector value={zone} onChange={setZone} />
+                <div className="mt-3">
+                  <DispatchAdvisoryPanel advisory={advisory} loading={advisoryLoading} scheduleMode />
+                </div>
+              </div>
+            </details>
             {error ? (
               <p className="font-body text-sm text-[var(--risk)]">{error}</p>
             ) : null}

@@ -13,9 +13,153 @@ import pandas as pd
 
 from app.feature_store import FS_DIR
 from app.ingestion.nso_client import ARCHIVE_START
-from app.train_nso_models import MODELS_DIR
+from app.train_nso_models import MODELS_DIR, load_nso_model
 
 NSO_PROCESSED = Path(__file__).resolve().parent / "data" / "nso" / "processed"
+
+WEATHER_FILL = (
+    "temp_c",
+    "humidity_pct",
+    "cloud_cover_pct",
+    "ghi_wm2",
+    "clearsky_ghi_wm2",
+    "wind_speed_ms",
+)
+
+
+def _fill_weather(frame: pd.DataFrame) -> pd.DataFrame:
+    out = frame.copy()
+    for col in WEATHER_FILL:
+        if col in out.columns:
+            out[col] = out[col].ffill().bfill().fillna(0)
+    return out
+
+
+def _series_mae(actual: pd.Series, forecast: pd.Series) -> float | None:
+    mask = actual.notna() & forecast.notna()
+    if not mask.any():
+        return None
+    return round(float(np.mean(np.abs(actual[mask] - forecast[mask]))), 2)
+
+
+def _peak_timing_error_min(
+    frame: pd.DataFrame, actual_col: str, forecast_col: str
+) -> float | None:
+    mask = frame[actual_col].notna() & frame[forecast_col].notna()
+    if not mask.any():
+        return None
+    sub = frame.loc[mask]
+    act_idx = sub[actual_col].idxmax()
+    fc_idx = sub[forecast_col].idxmax()
+    act_ts = pd.to_datetime(frame.loc[act_idx, "timestamp"])
+    fc_ts = pd.to_datetime(frame.loc[fc_idx, "timestamp"])
+    return round(abs((act_ts - fc_ts).total_seconds()) / 60.0, 1)
+
+
+def _ramp_timing_error_min(
+    frame: pd.DataFrame, actual_col: str, forecast_col: str
+) -> float | None:
+    evening = frame.loc[(frame["hour"] >= 17) & (frame["hour"] <= 21)].copy()
+    if len(evening) < 3:
+        return None
+    act_delta = evening[actual_col].diff()
+    fc_delta = evening[forecast_col].diff()
+    mask = act_delta.notna() & fc_delta.notna()
+    if not mask.any():
+        return None
+    act_idx = act_delta[mask].idxmax()
+    fc_idx = fc_delta[mask].idxmax()
+    act_ts = pd.to_datetime(frame.loc[act_idx, "timestamp"])
+    fc_ts = pd.to_datetime(frame.loc[fc_idx, "timestamp"])
+    return round(abs((act_ts - fc_ts).total_seconds()) / 60.0, 1)
+
+
+def _model_predictions(subset: pd.DataFrame) -> pd.DataFrame:
+    out = subset.copy()
+    out["fc_model_demand"] = np.nan
+    out["fc_model_solar"] = np.nan
+    out["fc_model_net"] = np.nan
+    try:
+        data = _fill_weather(out)
+        for name, col in (
+            ("demand_xgb", "fc_model_demand"),
+            ("solar_xgb", "fc_model_solar"),
+            ("netload_xgb", "fc_model_net"),
+        ):
+            pkg = load_nso_model(name)
+            features = pkg["features"]
+            missing = [f for f in features if f not in data.columns]
+            if missing:
+                continue
+            pred = pkg["model"].predict(data[features])
+            out[col] = pred
+    except FileNotFoundError:
+        pass
+    return out
+
+
+def _replay_validation(
+    subset: pd.DataFrame, *, label: str, demand_fc: str, solar_fc: str, net_fc: str
+) -> dict[str, Any]:
+    evening = subset.loc[(subset["hour"] >= 17) & (subset["hour"] <= 21)]
+    act_ramp = (
+        float(evening["demand_mw"].max() - evening["demand_mw"].min())
+        if len(evening)
+        else None
+    )
+    fc_ramp = (
+        float(evening[demand_fc].max() - evening[demand_fc].min())
+        if len(evening) and evening[demand_fc].notna().any()
+        else None
+    )
+    return {
+        "label": label,
+        "demand_mae_mw": _series_mae(subset["demand_mw"], subset[demand_fc]),
+        "solar_mae_mw": _series_mae(
+            subset["nso_solar_forecast_mw"], subset[solar_fc]
+        ),
+        "net_load_mae_mw": _series_mae(subset["net_load_mw"], subset[net_fc]),
+        "peak_timing_error_min": _peak_timing_error_min(
+            subset, "demand_mw", demand_fc
+        ),
+        "ramp_timing_error_min": _ramp_timing_error_min(
+            subset, "demand_mw", demand_fc
+        ),
+        "evening_ramp_actual_mw": None if act_ramp is None else round(act_ramp, 2),
+        "evening_ramp_forecast_mw": None if fc_ramp is None else round(fc_ramp, 2),
+    }
+
+
+def _build_replay_forecast(subset: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Join 24h persistence + trained XGBoost to actual replay day."""
+    frame = _model_predictions(subset)
+    frame["fc_persist_demand"] = frame["demand_lag_24h"]
+    frame["fc_persist_solar"] = frame["solar_est_lag_24h"]
+    frame["fc_persist_net"] = frame["net_load_lag_24h"]
+
+    validation = {
+        "method": "24h persistence baseline vs NSO-trained XGBoost on archived features",
+        "persistence": _replay_validation(
+            frame,
+            label="24h persistence",
+            demand_fc="fc_persist_demand",
+            solar_fc="fc_persist_solar",
+            net_fc="fc_persist_net",
+        ),
+        "model": _replay_validation(
+            frame,
+            label="XGBoost model",
+            demand_fc="fc_model_demand",
+            solar_fc="fc_model_solar",
+            net_fc="fc_model_net",
+        ),
+    }
+    summary_path = MODELS_DIR / "summary.json"
+    if summary_path.exists():
+        validation["holdout_reference"] = json.loads(
+            summary_path.read_text(encoding="utf-8")
+        ).get("models")
+    return frame, validation
 
 
 @lru_cache(maxsize=1)
@@ -173,8 +317,22 @@ def replay_day(day: date) -> dict[str, Any]:
         for _, r in day_peaks.iterrows()
     }
 
+    forecast_frame, validation = _build_replay_forecast(subset)
+
     points = []
-    for _, row in subset.iterrows():
+    for _, row in forecast_frame.iterrows():
+        def _fc(prefix: str) -> dict[str, float | None]:
+            d = row.get(f"{prefix}_demand")
+            s = row.get(f"{prefix}_solar")
+            n = row.get(f"{prefix}_net")
+            if pd.isna(d) and pd.isna(s) and pd.isna(n):
+                return {"demand_mw": None, "solar_mw": None, "net_load_mw": None}
+            return {
+                "demand_mw": None if pd.isna(d) else round(float(d), 2),
+                "solar_mw": None if pd.isna(s) else round(float(s), 2),
+                "net_load_mw": None if pd.isna(n) else round(float(n), 2),
+            }
+
         points.append(
             {
                 "timestamp": row["timestamp"].isoformat(sep=" "),
@@ -192,6 +350,8 @@ def replay_day(day: date) -> dict[str, Any]:
                 "cloud_cover_pct": None
                 if pd.isna(row.get("cloud_cover_pct"))
                 else round(float(row["cloud_cover_pct"]), 1),
+                "forecast_persistence": _fc("fc_persist"),
+                "forecast_model": _fc("fc_model"),
             }
         )
 
@@ -239,6 +399,7 @@ def replay_day(day: date) -> dict[str, Any]:
             ),
         },
         "n_points": len(points),
+        "validation": validation,
     }
 
 

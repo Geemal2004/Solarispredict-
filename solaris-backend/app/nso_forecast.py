@@ -18,6 +18,7 @@ from app.demand_model import (
 )
 from app.feature_store import SL_LAT, SL_LON
 from app.forecast import OPEN_METEO_URL, classify_weather_regime, is_tou_peak_hour
+from app.netload_uncertainty import netload_uncertainty, uncertainty_meta
 from app.nso_ops import _load_training
 from app.train_nso_models import load_nso_model
 from app.zones import risk_threshold_mw
@@ -205,9 +206,17 @@ def forecast_national(hours: int = 168) -> dict[str, Any]:
         # Ensemble: blend direct net-load with demand−solar identity
         n_mw = 0.55 * n_direct + 0.45 * (d_mw - s_mw)
 
-        # Weather uncertainty band from cloud cover
-        cloud = feat_demand["cloud_cover_pct"]
-        band = 40.0 + 0.8 * cloud  # MW half-width grows with cloudiness
+        cloud = float(feat_demand["cloud_cover_pct"])
+        # Bootstrap net-load quantiles from holdout forecast-error pool
+        unc = netload_uncertainty(
+            demand_mw=d_mw,
+            solar_mw=s_mw,
+            net_mw=n_mw,
+            hour=cal["hour"],
+            cloud_pct=cloud,
+            threshold_mw=risk_thr,
+            seed=int(ts.value % 1_000_000_007),
+        )
         regime = classify_weather_regime(cloud)
 
         demand_hist.append(d_mw)
@@ -221,14 +230,16 @@ def forecast_national(hours: int = 168) -> dict[str, Any]:
                 "demand_mw": round(d_mw, 2),
                 "solar_mw": round(s_mw, 2),
                 "net_load_mw": round(n_mw, 2),
-                "net_load_p10_mw": round(n_mw - band, 2),
-                "net_load_p90_mw": round(n_mw + band, 2),
+                "net_load_p10_mw": unc["net_load_p10_mw"],
+                "net_load_p50_mw": unc["net_load_p50_mw"],
+                "net_load_p90_mw": unc["net_load_p90_mw"],
+                "prob_below_threshold_pct": unc["prob_below_threshold_pct"],
                 "cloud_cover_pct": round(cloud, 1),
                 "temp_c": round(feat_demand["temp_c"], 1),
                 "ghi_wm2": round(feat_solar["ghi_wm2"], 1),
                 "weather_regime": regime,
                 "tou_peak": is_tou_peak_hour(cal["hour"]),
-                "hosting_risk": bool(n_mw < risk_thr),
+                "hosting_risk": bool(unc["prob_below_threshold_pct"] >= 50.0),
                 "is_weekend": bool(cal["is_weekend"]),
                 "is_poya": bool(cal["is_poya"]),
             }
@@ -244,17 +255,28 @@ def forecast_national(hours: int = 168) -> dict[str, Any]:
             & (pd.to_datetime(g["timestamp"]).dt.hour <= 21),
             "demand_mw",
         ]
+        prob_col = g["prob_below_threshold_pct"] if "prob_below_threshold_pct" in g.columns else None
         days.append(
             {
                 "date": d,
                 "peak_demand_mw": round(float(g["demand_mw"].max()), 2),
                 "peak_solar_mw": round(float(g["solar_mw"].max()), 2),
                 "min_net_load_mw": round(float(g["net_load_mw"].min()), 2),
+                "min_net_load_p10_mw": round(float(g["net_load_p10_mw"].min()), 2)
+                if "net_load_p10_mw" in g.columns
+                else None,
+                "max_prob_below_threshold_pct": round(float(prob_col.max()), 1)
+                if prob_col is not None
+                else None,
                 "evening_ramp_mw": round(float(evening.max() - evening.min()), 2)
                 if len(evening)
                 else None,
                 "mean_cloud_pct": round(float(g["cloud_cover_pct"].mean()), 1),
-                "hosting_risk_intervals": int(g["hosting_risk"].sum()),
+                "hosting_risk_intervals": int(
+                    (g["prob_below_threshold_pct"] >= 50.0).sum()
+                    if "prob_below_threshold_pct" in g.columns
+                    else g["hosting_risk"].sum()
+                ),
             }
         )
 
@@ -267,6 +289,7 @@ def forecast_national(hours: int = 168) -> dict[str, Any]:
         "points": points,
         "daily": days,
         "anchor_timestamp": hist["timestamp"].max().isoformat(sep=" "),
+        "uncertainty": uncertainty_meta(),
     }
 
 
@@ -280,8 +303,9 @@ def apply_scenario(
     hydro_conserve: bool = False,
 ) -> dict[str, Any]:
     """Deterministic what-if overlay on a national forecast."""
+    risk_thr = float(forecast["risk_threshold_mw"])
     points = []
-    for p in forecast["points"]:
+    for i, p in enumerate(forecast["points"]):
         q = dict(p)
         cloud = min(100.0, max(0.0, q["cloud_cover_pct"] + cloud_delta_pct))
         # Rough cloud → solar sensitivity
@@ -305,7 +329,19 @@ def apply_scenario(
         q["solar_mw"] = round(solar, 2)
         q["demand_mw"] = round(demand, 2)
         q["net_load_mw"] = round(net, 2)
-        q["hosting_risk"] = bool(net < forecast["risk_threshold_mw"])
+        ts = pd.to_datetime(q["timestamp"])
+        hour = ts.hour + ts.minute / 60.0
+        unc = netload_uncertainty(
+            demand_mw=float(demand),
+            solar_mw=float(solar),
+            net_mw=float(net),
+            hour=hour,
+            cloud_pct=cloud,
+            threshold_mw=risk_thr,
+            seed=i + int(cloud * 10),
+        )
+        q.update(unc)
+        q["hosting_risk"] = bool(unc["prob_below_threshold_pct"] >= 50.0)
         q["scenario"] = True
         points.append(q)
 

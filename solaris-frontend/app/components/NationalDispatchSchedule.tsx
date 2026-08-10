@@ -1,28 +1,18 @@
 "use client";
 
-import type { NationalBriefing, NationalForecast } from "@/lib/api";
-
-const DISPATCH_SCHEDULE = [
-  { plant: "Kerawalapitiya", action: "−40 MW at 11:30", confidence: 0.92 },
-  { plant: "Sapugaskanda", action: "Standby reserve", confidence: 0.88 },
-  { plant: "Lakvijaya", action: "Minimum stable load", confidence: 0.95 },
-  { plant: "Hydro fleet", action: "Preserve 120 MWh for evening peak", confidence: 0.91 },
-];
+import type { NationalDispatchScheduleResponse } from "@/lib/api";
 
 export function NationalDispatchSchedule({
-  briefing,
-  forecast,
+  schedule,
   loading,
 }: {
-  briefing: NationalBriefing | null;
-  forecast: NationalForecast | null;
+  schedule: NationalDispatchScheduleResponse | null;
   loading?: boolean;
 }) {
-  const netLow = forecast?.daily?.[0]?.min_net_load_mw;
-  const ramp = forecast?.daily?.[0]?.evening_ramp_mw;
-  const confidence = briefing?.archive.models?.netload_xgb?.r2
-    ? Math.round(briefing.archive.models.netload_xgb.r2 * 100)
-    : 85;
+  const rows = schedule?.schedule ?? [];
+  const netLow = schedule?.context?.min_net_load_mw;
+  const ramp = schedule?.context?.evening_ramp_mw;
+  const confidence = schedule?.confidence_pct ?? 85;
 
   return (
     <section className="scada-panel">
@@ -41,15 +31,28 @@ export function NationalDispatchSchedule({
       </div>
 
       {loading ? (
-        <p className="px-4 py-6 font-body text-sm text-[var(--ink-muted)]">Computing schedule…</p>
+        <p className="px-4 py-6 font-body text-sm text-[var(--ink-muted)]">
+          Computing schedule…
+        </p>
+      ) : rows.length === 0 ? (
+        <p className="px-4 py-6 font-body text-sm text-[var(--ink-muted)]">
+          Load national forecast to generate dispatch schedule.
+        </p>
       ) : (
         <>
           <ul className="divide-y divide-[var(--line)]">
-            {DISPATCH_SCHEDULE.map((row) => (
-              <li key={row.plant} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+            {rows.map((row) => (
+              <li
+                key={row.plant}
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+              >
                 <div>
-                  <p className="font-display font-semibold text-[var(--foreground)]">{row.plant}</p>
-                  <p className="font-mono-readout text-[0.72rem] text-[var(--solar)]">{row.action}</p>
+                  <p className="font-display font-semibold text-[var(--foreground)]">
+                    {row.plant}
+                  </p>
+                  <p className="font-mono-readout text-[0.72rem] text-[var(--solar)]">
+                    {row.action}
+                  </p>
                 </div>
                 <span className="font-mono-readout text-[0.65rem] text-[var(--ink-muted)]">
                   {(row.confidence * 100).toFixed(0)}% conf.
@@ -61,8 +64,8 @@ export function NationalDispatchSchedule({
             {netLow != null && ramp != null
               ? `Evening min net load ${netLow.toFixed(0)} MW · ramp ${ramp.toFixed(0)} MW. `
               : ""}
-            Schedule derived from national net-load forecast and merit-order rules — estimated
-            commitments, not live SCADA dispatch orders.
+            {schedule?.methodology ??
+              "Estimated commitments with plant, MW, and time — not live SCADA dispatch orders."}
           </p>
         </>
       )}

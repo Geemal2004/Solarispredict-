@@ -45,7 +45,7 @@ export function TimelineSlider({
         <div className="flex items-center gap-2">
           {risk ? (
             <span className="border border-[var(--risk)]/50 px-1.5 py-0.5 font-mono-readout text-[0.6rem] text-[var(--risk)]">
-              HOSTING RISK
+              NET-LOAD RISK
             </span>
           ) : null}
           {tou ? (

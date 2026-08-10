@@ -13,8 +13,10 @@ import {
 import type { NetLoadForecast, NetLoadPoint } from "@/lib/api";
 import {
   aggregateOutputByType,
+  fmtEstDispatchPair,
   formatPlaybackClock,
 } from "@/lib/mapPlayback";
+import { operationalRiskLabel, operationalRiskLevel } from "@/lib/opsAnalytics";
 import { PLANT_COLORS, PLANT_LABELS, type Plant, type PlantType } from "@/lib/plants";
 
 const ALL_TYPES: PlantType[] = ["hydro", "coal", "oil", "wind", "solar"];
@@ -26,6 +28,7 @@ interface MapAdvancedStatsProps {
   plants: Plant[];
   plantOutputs: Record<string, number>;
   loading?: boolean;
+  nationalMode?: boolean;
 }
 
 function StatCell({
@@ -69,6 +72,7 @@ export function MapAdvancedStats({
   plants,
   plantOutputs,
   loading,
+  nationalMode,
 }: MapAdvancedStatsProps) {
   if (loading && !forecast) {
     return (
@@ -84,11 +88,17 @@ export function MapAdvancedStats({
     return (
       <div className="scada-panel px-4 py-6 text-center">
         <p className="font-body text-sm text-[var(--ink-muted)]">
-          Load a zone forecast to drive map playback statistics.
+          {nationalMode
+            ? "Load national forecast to drive grid state playback."
+            : "Load a zone forecast to drive map playback statistics."}
         </p>
       </div>
     );
   }
+
+  const threshold = forecast.risk_threshold_mw ?? forecast.curtailment_threshold_mw ?? 375;
+  const risk = operationalRiskLevel(point.net_load_mw, threshold, point.hosting_risk ? 1 : 0);
+  const riskLabel = operationalRiskLabel(risk);
 
   const byType = aggregateOutputByType(plants, plantOutputs);
   const chartData = forecast.points.map((p, i) => ({
@@ -107,7 +117,7 @@ export function MapAdvancedStats({
             Advanced statistics
           </h2>
           <p className="font-mono-readout text-[0.65rem] text-[var(--ink-muted)]">
-            {formatPlaybackClock(point.timestamp)} · zone {forecast.zone}
+            {formatPlaybackClock(point.timestamp)} · {nationalMode ? "national" : forecast.zone}
           </p>
         </div>
         <p className="font-mono-readout text-[0.65rem] text-[var(--ink-muted)]">
@@ -119,7 +129,7 @@ export function MapAdvancedStats({
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
         <StatCell
-          label="SOLAR (ZONE)"
+          label={nationalMode ? "SOLAR (NATIONAL)" : "SOLAR (ZONE)"}
           value={point.solar_mw.toFixed(0)}
           unit="MW"
           accent="var(--solar)"
@@ -159,18 +169,14 @@ export function MapAdvancedStats({
         />
         <StatCell
           label="OPERATIONAL RISK"
-          value={
-            point.hosting_risk || point.curtailment_risk
-              ? "HIGH"
-              : point.net_load_mw < (forecast.risk_threshold_mw ?? 50) * 1.2
-                ? "MODERATE"
-                : "LOW"
-          }
+          value={riskLabel.replace(" operational risk", "").toUpperCase()}
           unit=""
           accent={
-            point.hosting_risk || point.curtailment_risk
+            risk === "high"
               ? "var(--risk)"
-              : "var(--ok)"
+              : risk === "moderate"
+                ? "var(--warn)"
+                : "var(--ok)"
           }
           sub={point.tou_peak ? "TOU peak window" : "Off-peak"}
         />
@@ -252,7 +258,7 @@ export function MapAdvancedStats({
         <div className="scada-panel">
           <div className="scada-panel-header">
             <h3 className="font-display text-xs font-semibold uppercase tracking-wider text-[var(--foreground)]">
-              Estimated utilization by type
+              Estimated dispatch mix
             </h3>
           </div>
           <div className="space-y-2 px-3 py-3">
@@ -275,7 +281,8 @@ export function MapAdvancedStats({
                       {PLANT_LABELS[t]}
                     </span>
                     <span className="font-mono-readout text-[0.65rem] text-[var(--ink-muted)]">
-                      est. {util.toFixed(0)}% util · conf {(confidence * 100).toFixed(0)}%
+                      {fmtEstDispatchPair(mw, max)} · est. {util.toFixed(0)}% util · conf{" "}
+                      {(confidence * 100).toFixed(0)}%
                     </span>
                   </div>
                   <div className="h-1.5 w-full bg-[var(--mist)]">

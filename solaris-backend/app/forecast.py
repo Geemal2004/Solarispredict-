@@ -315,7 +315,7 @@ def forecast_netload(
                 "(weekday/weekend/Poya/New Year/Vesak) — not live CEB telemetry"
             ),
             "net_load": "demand_mw - solar_mw",
-            "risk": "Hosting / net-load risk — not a published CEB curtailment GWh figure",
+            "risk": "Net-load risk — not a published CEB curtailment GWh figure",
         },
         "points": points,
     }

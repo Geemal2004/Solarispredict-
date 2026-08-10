@@ -61,7 +61,7 @@ Record once if judges want audio. ~140 words. Calm, mid tempo.
 - Optional: switch zone to **Colombo** for 5 seconds (“wet-zone cloud volatility”), then back to **Hambantota**.
 
 **Say:**  
-“Here’s the product idea in one chart: solar, demand, and net load on the same timeline, with a hosting-risk band when the midday dip gets dangerous. The advisory above isn’t a chart decoration — it’s the first place an operator should look: what to do in the next hours.”
+“Here’s the product idea in one chart: solar, demand, and net load on the same timeline, with a net-load risk band when the midday dip gets dangerous. The advisory above isn’t a chart decoration — it’s the first place an operator should look: what to do in the next hours.”
 
 ### 2:30–3:20 · National map (50s)
 
@@ -82,7 +82,7 @@ Record once if judges want audio. ~140 words. Calm, mid tempo.
 - Point at confidence if shown.
 
 **Say:**  
-“This is the differentiator. Merit-order logic: oil and diesel flex first; coal holds minimum stable; hydro conserved for the evening TOU peak; solar stays must-run when hosting allows. We’re not plugged into CEB’s actual dispatch system — and we label that. The point of the demo is decision support with lead time, not pretending we own the control room.”
+“This is the differentiator. Merit-order logic: oil and diesel flex first; coal holds minimum stable; hydro conserved for the evening TOU peak; solar stays must-run when net load allows. We’re not plugged into CEB’s actual dispatch system — and we label that. The point of the demo is decision support with lead time, not pretending we own the control room.”
 
 ### 4:10–4:30 · Methodology honesty (20s)
 
@@ -106,7 +106,7 @@ Record once if judges want audio. ~140 words. Calm, mid tempo.
 |---------|----------------|
 | API error on forecast | “Backend cold start — retry.” Click Retry. Shift to Methodology + Map static plants. |
 | Map slow | Stay on Forecast/Advisory; “Map is the spatial view of the same advisory.” |
-| Blank advisory | Stay on chart: “Even without the list, the hosting band is the operator signal.” |
+| Blank advisory | Stay on chart: “Even without the list, the net-load risk band is the operator signal.” |
 | Wrong zone cached | Switch Hambantota → Colombo → Hambantota to force reload. |
 
 ---

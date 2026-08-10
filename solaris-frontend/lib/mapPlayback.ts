@@ -124,3 +124,15 @@ export function formatPlaybackClock(iso: string): string {
     hour12: false,
   });
 }
+
+/** Inline estimate marker for merit-order / model dispatch MW — not SCADA. */
+export function fmtEstMw(n: number, digits = 0): string {
+  return `~${n.toLocaleString("en-LK", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  })}`;
+}
+
+export function fmtEstDispatchPair(estimateMw: number, capacityMw: number): string {
+  return `${fmtEstMw(estimateMw)} / ${Math.round(capacityMw).toLocaleString("en-LK")} MW`;
+}

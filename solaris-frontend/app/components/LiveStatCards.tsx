@@ -66,7 +66,7 @@ export function LiveStatCards({ stats, loading }: LiveStatCardsProps) {
       accent: "var(--monsoon)",
     },
     {
-      label: "HOSTING RISK E",
+      label: "NET-LOAD RISK E",
       value:
         stats.avoidable_curtailment.mwh_next_hour > 0
           ? stats.avoidable_curtailment.mwh_next_hour.toFixed(0)

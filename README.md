@@ -12,7 +12,7 @@ SolarisPredict-SL combines zone forecasts, a national plant map with time playba
 
 ### Forecast & dispatch advisory
 
-Zone net-load chart, hosting-risk context, and operator-facing recommendations for Colombo, Hambantota, and Jaffna.
+Zone net-load chart, net-load risk context, and operator-facing recommendations for Colombo, Hambantota, and Jaffna.
 
 ![Forecast dashboard — net-load chart, dispatch advisory, and grid digest](docs/screenshots/forecast-dashboard.png)
 
@@ -36,8 +36,8 @@ Academic work here typically forecasts solar *or* demand. This project forecasts
 
 | Surface | Purpose |
 |---------|---------|
-| **Forecast** | Solar, demand, and net load on one timeline (24h–7D), with a solar uncertainty band and hosting-risk threshold |
-| **Dispatch advisory** | Merit-order guidance: flex oil first, hold coal at minimum stable, conserve hydro for TOU peak (18:30–22:30), keep solar must-run when hosting allows |
+| **Forecast** | Solar, demand, and net load on one timeline (24h–7D), with a solar uncertainty band and net-load risk threshold |
+| **Dispatch advisory** | Merit-order guidance: flex oil first, hold coal at minimum stable, conserve hydro for TOU peak (18:30–22:30), keep solar must-run when net load allows |
 | **National map** | Plant markers by fuel type, timeline playback tied to zone forecasts, illustrative rooftop layer (~1,935 MW), FPV candidate sites |
 | **Methodology** | Sources, model choice, and explicit limits of the estimate |
 
@@ -111,7 +111,7 @@ npm run dev          # Remotion Studio → composition SolarisPitch
 |----------|-------------|
 | `GET /health` | Liveness + supported zones |
 | `GET /forecast/solar?zone=&hours=48` | Hourly GHI / solar MW from Open-Meteo + XGBoost |
-| `GET /forecast/netload?zone=&hours=48` | Solar + demand → net load and hosting / curtailment signals |
+| `GET /forecast/netload?zone=&hours=48` | Solar + demand → net load and net-load / curtailment signals |
 | `GET /backtest?zone=` | Holdout RMSE / MAE from the last training run |
 
 Zones: `hambantota` · `jaffna` · `colombo` · `hours` 1–168.
@@ -124,7 +124,7 @@ Zones: `hambantota` · `jaffna` · `colombo` · `hours` 1–168.
 |-------|----------|
 | **Solar** | Per-zone XGBoost on NASA POWER history; live drive from Open-Meteo radiation / cloud / temp |
 | **Demand** | Illustrative Sri Lanka load curve — weekday / weekend / Poya / New Year multipliers from published patterns |
-| **Net load** | `demand − solar`, with a hosting-risk band when the midday dip gets dangerous |
+| **Net load** | `demand − solar`, with a net-load risk band when the midday dip gets dangerous |
 | **Dispatch** | Merit-order rules + confidence — not live CEB SCADA |
 
 **Honesty label:** demand is calendar-pattern-based, not live CEB telemetry. Rooftop points are a synthetic national distribution from published capacity — not individual GPS addresses. Square markers on the map include potential iPURSE 2025 FPV candidates that may not be built yet.
