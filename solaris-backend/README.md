@@ -1,4 +1,17 @@
+---
+title: DriveEase
+emoji: ☀️
+colorFrom: yellow
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+# Rebuild marker: solarispredict-docker
+---
+
 # SolarisPredict-SL Backend
+
+> Factory rebuild: Docker python:3.11-slim + FastAPI on port 7860.
 
 FastAPI service that forecasts **net load** (demand − solar) for three Sri Lankan zones, for demos on Hugging Face Spaces (Docker, port **7860**).
 
@@ -23,12 +36,41 @@ solaris-backend/
 │   ├── demand_model.py      # Rule-based SL load curve + 2026 Poya list
 │   ├── forecast.py          # Open-Meteo + models → net load + curtailment flag
 │   ├── zones.py             # Coordinates and capacity scales
+│   ├── ingestion/           # Public NSO / EDLCare gensum JSON client + backfill
 │   ├── models/              # Saved .pkl models + metrics JSON
-│   └── data/                # Cached NASA POWER parquet (after training pull)
+│   └── data/                # NASA POWER + NSO archives (gitignored)
 ├── Dockerfile
 ├── requirements.txt
 └── README.md
 ```
+
+## NSO public data ingestion
+
+The NSO Generation Summary UI (`https://edlcare.edl.lk/gensum/details`) loads structured JSON from `/api/gensum/*`. Those endpoints are **public** — OIDC login is only for `/api/auth/me`. A browser-like `User-Agent` is required (Cloudflare returns 403 without it); cookies / CSRF are not.
+
+| Endpoint | Content |
+|----------|---------|
+| `load-curve?date=` | 15-min generation by source (MW) |
+| `solar-forecast?date=` | 15-min NSO PV estimate (MW) |
+| `peak-data?date=` | Day peak / night peak / minimum demand |
+| `energy-data?date=` | Daily energy by station group (GWh) |
+| `reservoir-data?date=` | Reservoir storage / rainfall |
+| `daily-energy-summary` | Rolling ~31-day energy mix only |
+
+Historical per-day series begin on **2026-02-10** (earlier dates are clamped server-side).
+
+```bash
+# from solaris-backend/
+python -m app.ingestion.fetch_historical --start 2026-02-10 --end yesterday
+python -m app.ingestion.fetch_historical --yesterday
+```
+
+Writes:
+
+- `app/data/nso/raw/YYYY-MM-DD.json` — raw day bundles
+- `app/data/nso/processed/*.parquet` — tidy tables (`generation_15min`, `solar_forecast_15min`, `peaks_daily`, …)
+
+Demand at each timestep is the sum of published load-curve sources. Note: load-curve `Solar` is often much lower than `solar-forecast` `pvEstimate` (SCADA subset vs system estimate) — keep both columns.
 
 ## Endpoints
 

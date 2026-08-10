@@ -1,0 +1,14 @@
+# Monorepo: Netlify builds only the Next.js frontend.
+# Site settings: leave Base directory empty (this file sets it).
+# Required env var in Netlify UI → Site configuration → Environment variables:
+#   NEXT_PUBLIC_API_URL = https://your-backend.hf.space   (no trailing slash)
+
+[build]
+  base = "solaris-frontend"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Optional default for local `netlify build`; production should set this in the UI.
+  # NEXT_PUBLIC_API_URL = "https://your-backend.hf.space"

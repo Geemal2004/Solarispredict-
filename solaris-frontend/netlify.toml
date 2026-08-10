@@ -1,0 +1,12 @@
+# Used when Netlify Base directory is set to `solaris-frontend`.
+# Prefer the repo-root netlify.toml (sets base automatically).
+#
+# Required env var in Netlify UI:
+#   NEXT_PUBLIC_API_URL = https://your-backend.hf.space
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"

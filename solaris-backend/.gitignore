@@ -8,12 +8,14 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .DS_Store
+.cursor/
 
 # Large training caches (regenerate with python -m app.data_pipeline)
 app/data/*.parquet
 app/data/*.csv
 
-# Trained artifacts are optional in git; regenerate with train_solar_model
-# Uncomment to ignore:
-# app/models/*.pkl
-# app/models/*.json
+# NSO / EDLCare gensum archive is tracked (raw + processed) for deploy/demo reproducibility
+# Regenerate with: python -m app.ingestion.fetch_historical
+
+# Keep trained .pkl + metrics JSON tracked — required for Hugging Face Space deploy
+# Do NOT ignore app/models/*.pkl or app/models/*.json
