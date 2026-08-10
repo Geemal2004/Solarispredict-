@@ -29,17 +29,20 @@ SolarisPredict-SL combines zone forecasts, a national plant map with time playba
 
 ## 📸 Screenshots
 
-### Forecast & dispatch advisory
+### 1. Operations Dashboard
+![Operations Dashboard](docs/screenshots/screenshot_1.png)
 
-Zone net-load chart, net-load risk context, and operator-facing recommendations for Colombo, Hambantota, and Jaffna.
+### 2. Zone Analysis
+![Zone Analysis](docs/screenshots/screenshot_2.png)
 
-![Forecast dashboard — net-load chart, dispatch advisory, and grid digest](docs/screenshots/forecast-dashboard.png)
+### 3. Historical Replay
+![Historical Replay](docs/screenshots/screenshot_3.png)
 
-### National map
+### 4. National Grid State Map
+![National Grid State Map](docs/screenshots/screenshot_4.png)
 
-Animated national generation view — hydro, coal, oil/thermal, wind, utility solar — with optional rooftop layer and estimated dispatch mix.
-
-![National map — Sri Lanka plant markers with forecast playback](docs/screenshots/national-map.png)
+### 5. Recommended Dispatch Schedule
+![Recommended Dispatch Schedule](docs/screenshots/screenshot_5.png)
 
 ---
 
