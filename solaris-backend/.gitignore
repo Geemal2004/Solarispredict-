@@ -11,9 +11,7 @@ __pycache__/
 .cursor/
 
 # Large training caches (regenerate with python -m app.data_pipeline)
-app/data/*.parquet
-app/data/*.csv
-app/data/feature_store/
+
 
 # NSO / EDLCare gensum archive is tracked (raw + processed) for deploy/demo reproducibility
 # Regenerate with: python -m app.ingestion.fetch_historical

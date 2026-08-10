@@ -33,8 +33,7 @@ coverage/
 next-env.d.ts
 
 # Backend generated caches (regenerate via data pipeline)
-solaris-backend/app/data/*.parquet
-solaris-backend/app/data/*.csv
+
 
 # Large reference reports kept locally (not for GitHub)
 3. CEB Annual Report 2023 - English.pdf
