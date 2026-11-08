@@ -51,17 +51,20 @@ SolarisPredict-SL combines zone forecasts, a national plant map with time playba
 
 ---
 
-## 📊 Model Validation
+## 📊 Retrospective Research Prototype Scope & Evaluation
 
-Models were trained and validated on **17,195 official Sri Lankan NSO operational intervals** (2026-02-10 → 2026-08-09).
+> **Research Prototype & Data Notice:**  
+> SolarisPredict-SL is an exploratory, weather-driven research prototype for retrospective analysis of NSO generation-mix and solar-estimate records, a constructed net-load proxy and illustrative heuristic advisory rules. The published archived XGBoost scores were obtained with contemporaneous archived weather and row-shifted lags and do not establish forecast-origin accuracy. The `net_load_mw` training label is `G - P` (NSO generation sum minus NSO photovoltaic estimate), not independently measured physical net load. Advisory outputs are hypothetical and not grid dispatch instructions.  
+>  
+> The current source tree at commit `cf0abb84fbf9a440e1e0caa19dbe1e0a90c0d577` excludes the historic NSO raw and derived observation-level files. Old commit objects can remain accessible; no rights to redistribute underlying NSO/EDL records are asserted. Any downstream collection must comply with the source provider's conditions.
 
-| Model | MAE | Improvement vs 24h persistence |
-|------|------:|------:|
-| Demand | **47 MW** | **~4× better** |
-| Solar estimate | **24 MW** | — |
-| Net load | **57 MW** | **~4× better** |
+Historical baseline evaluation across Sri Lankan NSO operational intervals (2026-02-10 → 2026-08-09):
 
-Validation uses a chronological holdout to avoid look-ahead bias.
+| Model Task | Metric | Notes |
+|---|---|---|
+| Generation Sum ($G$) | Retrospective MAE | Evaluated against contemporaneous archived weather |
+| Solar Estimate ($P$) | Retrospective MAE | Evaluated against contemporaneous archived weather |
+| Net Load Proxy ($Q = G - P$) | Retrospective MAE | Retrospective proxy index; not operational SCADA net load |
 
 ## 💡 Why this exists
 
@@ -145,7 +148,23 @@ flowchart LR
 
 ## 🚀 Quick start
 
-### 1. Backend
+### Option A — one command
+
+```powershell
+# Windows (PowerShell)
+pwsh -File scripts/dev.ps1
+```
+
+```bash
+# macOS / Linux
+./scripts/dev.sh
+```
+
+First run creates the Python venv, installs pinned backend dependencies and npm packages automatically, then starts both services.
+
+### Option B — manual
+
+1. Backend:
 
 ```bash
 cd solaris-backend
@@ -160,25 +179,28 @@ py -m app.train_solar_model
 py -m uvicorn app.main:app --reload --host 0.0.0.0 --port 7860
 ```
 
-API docs: [http://localhost:7860/docs](http://localhost:7860/docs)
-
-### 2. Frontend
+2. Frontend:
 
 ```bash
 cd solaris-frontend
-cp .env.local.example .env.local   # NEXT_PUBLIC_API_URL=http://localhost:7860
 npm install
-npm run dev
+npm run dev                     # defaults to http://localhost:7860 for the API
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### 3. Pitch video (optional)
+### Configuration
+
+| Variable | Where | Default | Purpose |
+|----------|-------|---------|---------|
+| `NEXT_PUBLIC_API_URL` | frontend `.env.local` | `http://localhost:7860` | Backend base URL (set in Netlify UI for production) |
+| `SOLARIS_CORS_ORIGINS` | backend env | localhost origins + Netlify site | Comma-separated browser origins allowed by the API (`*` allowed, credentials disabled) |
+
+### Run the tests
 
 ```bash
-cd solaris-demo
-npm install
-npm run dev          # Remotion Studio → composition SolarisPitch
+cd solaris-backend
+.venv\Scripts\python -m pytest tests -q    # 20 hermetic tests, no network needed
 ```
 
 ---
@@ -283,12 +305,31 @@ flowchart LR
 
 ## 📡 API (backend)
 
+Interactive docs: [http://localhost:7860/docs](http://localhost:7860/docs)
+
 | Endpoint | Description |
 |----------|-------------|
-| `GET /health` | Liveness + supported zones |
+| `GET /health` | Liveness, zones, NSO archive metadata |
+| `GET /ops/briefing` | National Grid Briefing from latest archived NSO interval |
+| `GET /ops/dispatch-schedule?hours=168` | Merit-order dispatch schedule (plant, MW, time) |
+| `GET /ops/replay?day=YYYY-MM-DD` | Historical day reconstruction from the archive |
+| `GET /ops/replay/dates` | Available replay dates |
+| `GET /ops/accuracy?window_days=7` | Rolling forecast accuracy vs archive actuals |
+| `GET /ops/visibility` | Solar visibility index (rooftop share vs SCADA) |
+| `GET /ops/weather-anomaly?hours=24[&zone=]` | Forecast vs NASA POWER climatology deviation |
+| `GET /ops/models` | XGBoost holdout metrics + archive metadata |
+| `GET /forecast/national?hours=168` | 7-day national demand/solar/net-load (15-min) |
+| `GET /forecast/national/scenario` | Scenario simulator (cloud, outage, wind collapse…) |
 | `GET /forecast/solar?zone=&hours=48` | Hourly GHI / solar MW from Open-Meteo + XGBoost |
-| `GET /forecast/netload?zone=&hours=48` | Solar + demand → net load and net-load / curtailment signals |
+| `GET /forecast/solar/quantiles?zone=` | P10/P50/P90 solar uncertainty bands |
+| `GET /forecast/netload?zone=&hours=48` | Solar + demand → net load and risk signals |
 | `GET /backtest?zone=` | Holdout RMSE / MAE from the last training run |
+| `GET /evidence/solar?zone=` | Literature benchmarks + this build's metrics |
+| `GET /stats/national` · `/stats/ceb-baseline` | Live national snapshot · CEB Digest reference |
+| `GET /grid/network?hours=&point_index=` | Transmission nodes with modeled net injection |
+| `GET /map/fpv-reservoirs` · `/rooftop/sample` | FPV candidates · rooftop solar sample |
+| `GET /advisory/dispatch?zone=&hours=` | Zone merit-order advisory |
+| `GET /calendar?hours=48` | Calendar features (weekend / Poya / holidays) |
 
 Zones: `hambantota` · `jaffna` · `colombo` · `hours` 1–168.
 
@@ -319,15 +360,14 @@ Zones: `hambantota` · `jaffna` · `colombo` · `hours` 1–168.
 
 ```
 AI Challenge/
-├── solaris-backend/     # FastAPI + XGBoost + demand engine
+├── solaris-backend/     # FastAPI + XGBoost backend, NSO archive, tests/
 ├── solaris-frontend/    # Next.js dashboard
-├── solaris-demo/        # Remotion 90s pitch
+├── scripts/             # One-command dev launchers (dev.ps1 / dev.sh)
 ├── docs/screenshots/    # README images
-├── DEMO.md              # 5-minute live demo script
 └── README.md
 ```
 
-More detail: [solaris-backend/README.md](solaris-backend/README.md) · [solaris-frontend/README.md](solaris-frontend/README.md) · [solaris-demo/README.md](solaris-demo/README.md)
+More detail: [solaris-backend/README.md](solaris-backend/README.md) · [solaris-frontend/README.md](solaris-frontend/README.md)
 
 ---
 
